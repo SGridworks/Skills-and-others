@@ -89,6 +89,17 @@ if [ "$TARGET" = "claude" ]; then
     chmod +x "$HOOKS_DIR/"*.sh
     echo "  Installed: $(ls "${SCRIPT_DIR}/.claude/hooks/"*.sh | wc -l | tr -d ' ') hooks"
   fi
+
+  # Install user-level CLAUDE.md (won't overwrite existing)
+  USER_CLAUDE="$HOME/.claude/CLAUDE.md"
+  if [ ! -f "$USER_CLAUDE" ]; then
+    if [ -f "${SCRIPT_DIR}/examples/user-CLAUDE.md" ]; then
+      cp "${SCRIPT_DIR}/examples/user-CLAUDE.md" "$USER_CLAUDE"
+      echo "  Installed: user-level CLAUDE.md"
+    fi
+  else
+    echo "  Skipped: ~/.claude/CLAUDE.md already exists (not overwriting)"
+  fi
 fi
 
 echo ""
@@ -97,6 +108,7 @@ echo ""
 echo "Next steps:"
 echo "  1. Review installed rules in: $RULES_DIR"
 if [ "$TARGET" = "claude" ]; then
-  echo "  2. Copy relevant MCP configs from mcp-configs/mcp-servers.json to your project"
-  echo "  3. Create a project-specific CLAUDE.md (see examples/ for templates)"
+  echo "  2. Review ~/.claude/CLAUDE.md and customize for your preferences"
+  echo "  3. Copy relevant MCP configs from mcp-configs/mcp-servers.json to your project"
+  echo "  4. Create a project-specific CLAUDE.md (see examples/ for templates)"
 fi
