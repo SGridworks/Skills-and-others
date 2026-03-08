@@ -19,7 +19,7 @@ assert() {
 echo "=== Hook Tests ==="
 
 # Test: All hook scripts exist
-for hook in session-start stop pre-compact; do
+for hook in session-start stop pre-compact guard-bash; do
   if [ -f ".claude/hooks/${hook}.sh" ]; then
     assert "Hook ${hook}.sh exists" 0
   else
@@ -61,6 +61,13 @@ for hook_path in $(grep -oP '\$CLAUDE_PROJECT_DIR/[^"]+' .claude/settings.json);
     assert "Referenced hook exists: $resolved" 1
   fi
 done
+
+# Test: PreToolUse hook is configured
+if grep -q "PreToolUse" .claude/settings.json 2>/dev/null; then
+  assert "PreToolUse hook is configured" 0
+else
+  assert "PreToolUse hook is configured" 1
+fi
 
 echo ""
 echo "Results: ${PASS} passed, ${FAIL} failed"

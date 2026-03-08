@@ -1,12 +1,13 @@
 #!/bin/bash
 set -euo pipefail
 
-# Skills-and-others Installer
+# Claude Code Configuration Installer
 # Usage: ./install.sh [--target claude|cursor] [language...]
 # Example: ./install.sh typescript python
 # Example: ./install.sh --target cursor typescript
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 TARGET="claude"
 LANGUAGES=()
 
@@ -56,7 +57,7 @@ case "$TARGET" in
     ;;
 esac
 
-echo "Installing Skills-and-others configuration..."
+echo "Installing Claude Code configuration..."
 echo "Target: $TARGET"
 echo "Rules directory: $RULES_DIR"
 
@@ -82,12 +83,12 @@ done
 # Install hooks (Claude target only)
 if [ "$TARGET" = "claude" ]; then
   HOOKS_DIR="$HOME/.claude/hooks"
-  if [ -d "${SCRIPT_DIR}/.claude/hooks" ]; then
+  if [ -d "${REPO_DIR}/.claude/hooks" ]; then
     echo "Installing hooks..."
     mkdir -p "$HOOKS_DIR"
-    cp "${SCRIPT_DIR}/.claude/hooks/"*.sh "$HOOKS_DIR/"
+    cp "${REPO_DIR}/.claude/hooks/"*.sh "$HOOKS_DIR/"
     chmod +x "$HOOKS_DIR/"*.sh
-    echo "  Installed: $(ls "${SCRIPT_DIR}/.claude/hooks/"*.sh | wc -l | tr -d ' ') hooks"
+    echo "  Installed: $(ls "${REPO_DIR}/.claude/hooks/"*.sh | wc -l | tr -d ' ') hooks"
   fi
 
   # Install user-level CLAUDE.md (won't overwrite existing)
@@ -109,6 +110,6 @@ echo "Next steps:"
 echo "  1. Review installed rules in: $RULES_DIR"
 if [ "$TARGET" = "claude" ]; then
   echo "  2. Review ~/.claude/CLAUDE.md and customize for your preferences"
-  echo "  3. Copy relevant MCP configs from mcp-configs/mcp-servers.json to your project"
-  echo "  4. Create a project-specific CLAUDE.md (see examples/ for templates)"
+  echo "  3. Copy relevant MCP configs from claude/mcp-configs/ to your project"
+  echo "  4. Create a project-specific CLAUDE.md (see claude/examples/ for templates)"
 fi

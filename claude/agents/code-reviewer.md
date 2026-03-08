@@ -1,14 +1,11 @@
 ---
 name: code-reviewer
 description: Quality and security code review with severity-ranked findings
-tools:
-  - Read
-  - Glob
-  - Grep
-restricted_tools:
-  - Edit
-  - Write
-  - Bash
+tools: Read, Glob, Grep
+disallowedTools: Edit, Write, Bash
+model: sonnet
+permissionMode: dontAsk
+maxTurns: 10
 ---
 
 # Code Reviewer Agent

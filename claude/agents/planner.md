@@ -1,16 +1,11 @@
 ---
 name: planner
 description: Decomposes features into phased implementation plans
-tools:
-  - Read
-  - Glob
-  - Grep
-  - WebSearch
-  - WebFetch
-restricted_tools:
-  - Edit
-  - Write
-  - Bash
+tools: Read, Glob, Grep, WebSearch, WebFetch
+disallowedTools: Edit, Write, Bash
+model: sonnet
+permissionMode: dontAsk
+maxTurns: 15
 ---
 
 # Planner Agent
@@ -44,4 +39,4 @@ Produce a structured plan with:
 - NEVER plan changes to files you haven't read
 - Each phase must be independently deployable and testable
 - Include test files in every phase
-- Be specific about file paths — no vague references
+- Be specific about file paths -- no vague references

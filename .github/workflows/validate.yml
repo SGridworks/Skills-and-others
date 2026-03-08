@@ -15,7 +15,7 @@ jobs:
       - name: Check shell scripts are executable
         run: |
           EXIT=0
-          for f in $(find .claude/hooks memory-persistence -name "*.sh" 2>/dev/null); do
+          for f in $(find .claude/hooks claude/memory-persistence -name "*.sh" 2>/dev/null); do
             if [ ! -x "$f" ]; then
               echo "ERROR: $f is not executable"
               EXIT=1
@@ -27,7 +27,7 @@ jobs:
         uses: ludeeus/action-shellcheck@master
         with:
           scandir: '.claude/hooks'
-          additional_files: 'memory-persistence/save-state.sh memory-persistence/load-state.sh'
+          additional_files: 'claude/memory-persistence/save-state.sh claude/memory-persistence/load-state.sh claude/install.sh'
 
       - name: Validate JSON files
         run: |
@@ -38,9 +38,31 @@ jobs:
 
       - name: Check SKILL.md files exist for all skills
         run: |
-          for d in skills/*/; do
+          for d in claude/skills/*/; do
             if [ ! -f "${d}SKILL.md" ]; then
               echo "ERROR: Missing SKILL.md in $d"
+              exit 1
+            fi
+          done
+
+      - name: Check skill frontmatter
+        run: |
+          for d in claude/skills/*/; do
+            if [ -f "${d}SKILL.md" ] && ! head -1 "${d}SKILL.md" | grep -q "^---"; then
+              echo "ERROR: Missing frontmatter in ${d}SKILL.md"
+              exit 1
+            fi
+          done
+
+      - name: Check agent frontmatter
+        run: |
+          for f in claude/agents/*.md; do
+            if ! head -1 "$f" | grep -q "^---"; then
+              echo "ERROR: Missing frontmatter in $f"
+              exit 1
+            fi
+            if ! grep -q "^model:" "$f"; then
+              echo "ERROR: Missing model field in $f"
               exit 1
             fi
           done
@@ -56,5 +78,5 @@ jobs:
 
       - name: Run test suite
         run: |
-          bash tests/test-hooks.sh
-          bash tests/test-configs.sh
+          bash claude/tests/test-hooks.sh
+          bash claude/tests/test-configs.sh
