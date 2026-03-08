@@ -1,0 +1,60 @@
+name: Validate Configuration
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check shell scripts are executable
+        run: |
+          EXIT=0
+          for f in $(find .claude/hooks memory-persistence -name "*.sh" 2>/dev/null); do
+            if [ ! -x "$f" ]; then
+              echo "ERROR: $f is not executable"
+              EXIT=1
+            fi
+          done
+          exit $EXIT
+
+      - name: Lint shell scripts with shellcheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: '.claude/hooks'
+          additional_files: 'memory-persistence/save-state.sh memory-persistence/load-state.sh'
+
+      - name: Validate JSON files
+        run: |
+          for f in $(find . -name "*.json" -not -path "./.git/*"); do
+            echo "Validating $f"
+            python3 -m json.tool "$f" > /dev/null || { echo "INVALID JSON: $f"; exit 1; }
+          done
+
+      - name: Check SKILL.md files exist for all skills
+        run: |
+          for d in skills/*/; do
+            if [ ! -f "${d}SKILL.md" ]; then
+              echo "ERROR: Missing SKILL.md in $d"
+              exit 1
+            fi
+          done
+
+      - name: Check required files exist
+        run: |
+          for f in CLAUDE.md .gitignore .claude/settings.json; do
+            if [ ! -f "$f" ]; then
+              echo "ERROR: Missing required file: $f"
+              exit 1
+            fi
+          done
+
+      - name: Run test suite
+        run: |
+          bash tests/test-hooks.sh
+          bash tests/test-configs.sh
