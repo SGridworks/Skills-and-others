@@ -59,6 +59,89 @@ for d in claude/skills/*/; do
   fi
 done
 
+# Test: All skill descriptions include trigger phrases ("Use when")
+for d in claude/skills/*/; do
+  if [ -f "${d}SKILL.md" ] && grep -q "Use when" "${d}SKILL.md" 2>/dev/null; then
+    assert "$(basename "$d") skill has trigger phrases" 0
+  else
+    assert "$(basename "$d") skill has trigger phrases" 1
+  fi
+done
+
+# Test: All skill descriptions include negative triggers ("Do NOT use")
+for d in claude/skills/*/; do
+  if [ -f "${d}SKILL.md" ] && grep -q "Do NOT use" "${d}SKILL.md" 2>/dev/null; then
+    assert "$(basename "$d") skill has negative triggers" 0
+  else
+    assert "$(basename "$d") skill has negative triggers" 1
+  fi
+done
+
+# Test: All skills have metadata section
+for d in claude/skills/*/; do
+  if [ -f "${d}SKILL.md" ] && grep -q "^metadata:" "${d}SKILL.md" 2>/dev/null; then
+    assert "$(basename "$d") skill has metadata" 0
+  else
+    assert "$(basename "$d") skill has metadata" 1
+  fi
+done
+
+# Test: All skills have Examples section
+for d in claude/skills/*/; do
+  if [ -f "${d}SKILL.md" ] && grep -q "^## Examples" "${d}SKILL.md" 2>/dev/null; then
+    assert "$(basename "$d") skill has Examples section" 0
+  else
+    assert "$(basename "$d") skill has Examples section" 1
+  fi
+done
+
+# Test: All skills have Troubleshooting section
+for d in claude/skills/*/; do
+  if [ -f "${d}SKILL.md" ] && grep -q "^## Troubleshooting" "${d}SKILL.md" 2>/dev/null; then
+    assert "$(basename "$d") skill has Troubleshooting section" 0
+  else
+    assert "$(basename "$d") skill has Troubleshooting section" 1
+  fi
+done
+
+# Test: All skills have Rules section
+for d in claude/skills/*/; do
+  if [ -f "${d}SKILL.md" ] && grep -q "^## Rules" "${d}SKILL.md" 2>/dev/null; then
+    assert "$(basename "$d") skill has Rules section" 0
+  else
+    assert "$(basename "$d") skill has Rules section" 1
+  fi
+done
+
+# Test: No skill names contain "claude" or "anthropic"
+for d in claude/skills/*/; do
+  skill_name=$(basename "$d")
+  if echo "$skill_name" | grep -qiE "claude|anthropic"; then
+    assert "$skill_name does not use reserved name" 1
+  else
+    assert "$skill_name does not use reserved name" 0
+  fi
+done
+
+# Test: All skill folder names are kebab-case
+for d in claude/skills/*/; do
+  skill_name=$(basename "$d")
+  if echo "$skill_name" | grep -qP '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'; then
+    assert "$skill_name is kebab-case" 0
+  else
+    assert "$skill_name is kebab-case" 1
+  fi
+done
+
+# Test: No README.md inside skill folders
+for d in claude/skills/*/; do
+  if [ -f "${d}README.md" ]; then
+    assert "$(basename "$d") has no README.md inside skill folder" 1
+  else
+    assert "$(basename "$d") has no README.md inside skill folder" 0
+  fi
+done
+
 # Test: All agents have frontmatter
 for f in claude/agents/*.md; do
   if head -1 "$f" | grep -q "^---"; then
