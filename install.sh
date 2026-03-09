@@ -2,9 +2,9 @@
 set -euo pipefail
 
 # Skills-and-others Installer
+# Creates symlinks from ~/.claude/ to this repo for shared config.
 # Usage: ./install.sh [--target claude|cursor] [language...]
 # Example: ./install.sh typescript python
-# Example: ./install.sh --target cursor typescript
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET="claude"
@@ -23,14 +23,11 @@ while [[ $# -gt 0 ]]; do
       echo "Languages: typescript, python, golang"
       echo "Targets: claude (default), cursor"
       echo ""
-      echo "Examples:"
-      echo "  $0 typescript           # Install TypeScript rules for Claude Code"
-      echo "  $0 --target cursor python  # Install Python rules for Cursor"
-      echo "  $0 typescript python    # Install both"
+      echo "Creates symlinks from ~/.claude/ into this repo so config"
+      echo "stays in sync across machines via git pull."
       exit 0
       ;;
     *)
-      # Validate language (prevent path traversal)
       if [[ "$1" =~ ^[a-zA-Z]+$ ]]; then
         LANGUAGES+=("$1")
       else
@@ -44,71 +41,145 @@ done
 
 # Determine destination
 case "$TARGET" in
-  claude)
-    RULES_DIR="$HOME/.claude/rules"
-    ;;
-  cursor)
-    RULES_DIR="./.cursor/rules"
-    ;;
+  claude) CLAUDE_DIR="$HOME/.claude" ;;
+  cursor) CLAUDE_DIR="./.cursor" ;;
   *)
     echo "ERROR: Unknown target: $TARGET (use 'claude' or 'cursor')"
     exit 1
     ;;
 esac
 
-echo "Installing Skills-and-others configuration..."
-echo "Target: $TARGET"
-echo "Rules directory: $RULES_DIR"
+RULES_DIR="${CLAUDE_DIR}/rules"
 
-# Install common rules
+echo "Installing Skills-and-others (symlink mode)..."
+echo "Repo: ${SCRIPT_DIR}"
+echo "Target: ${CLAUDE_DIR}"
+echo ""
+
+# Helper: create symlink, backing up existing file if not already a symlink to us
+link_file() {
+  local src="$1"
+  local dst="$2"
+
+  if [ -L "$dst" ]; then
+    local current
+    current="$(readlink "$dst")"
+    if [ "$current" = "$src" ]; then
+      echo "  OK (already linked): $(basename "$dst")"
+      return
+    fi
+    rm "$dst"
+  elif [ -e "$dst" ]; then
+    local backup="${dst}.backup.$(date +%s)"
+    mv "$dst" "$backup"
+    echo "  Backed up: $(basename "$dst") -> $(basename "$backup")"
+  fi
+
+  ln -s "$src" "$dst"
+  echo "  Linked: $(basename "$dst") -> ${src}"
+}
+
+# Helper: symlink all files in a source dir into a destination dir
+link_dir_contents() {
+  local src_dir="$1"
+  local dst_dir="$2"
+
+  mkdir -p "$dst_dir"
+  for f in "$src_dir"/*; do
+    [ -e "$f" ] || continue
+    link_file "$f" "${dst_dir}/$(basename "$f")"
+  done
+}
+
+# --- Rules ---
+echo "Rules:"
 mkdir -p "$RULES_DIR"
+
+# Common rules
 if [ -d "${SCRIPT_DIR}/rules/common" ]; then
-  echo "Installing common rules..."
-  cp "${SCRIPT_DIR}/rules/common/"*.md "$RULES_DIR/"
-  echo "  Installed: $(ls "${SCRIPT_DIR}/rules/common/"*.md | wc -l | tr -d ' ') common rules"
+  link_dir_contents "${SCRIPT_DIR}/rules/common" "$RULES_DIR"
 fi
 
-# Install language-specific rules
+# Language-specific rules
 for lang in "${LANGUAGES[@]}"; do
   if [ -d "${SCRIPT_DIR}/rules/${lang}" ]; then
-    echo "Installing ${lang} rules..."
-    cp "${SCRIPT_DIR}/rules/${lang}/"*.md "$RULES_DIR/"
-    echo "  Installed: $(ls "${SCRIPT_DIR}/rules/${lang}/"*.md | wc -l | tr -d ' ') ${lang} rules"
+    link_dir_contents "${SCRIPT_DIR}/rules/${lang}" "$RULES_DIR"
   else
-    echo "WARNING: No rules found for language: ${lang}"
+    echo "  WARNING: No rules found for language: ${lang}"
   fi
 done
 
-# Install hooks (Claude target only)
-if [ "$TARGET" = "claude" ]; then
-  HOOKS_DIR="$HOME/.claude/hooks"
-  if [ -d "${SCRIPT_DIR}/.claude/hooks" ]; then
-    echo "Installing hooks..."
-    mkdir -p "$HOOKS_DIR"
-    cp "${SCRIPT_DIR}/.claude/hooks/"*.sh "$HOOKS_DIR/"
-    chmod +x "$HOOKS_DIR/"*.sh
-    echo "  Installed: $(ls "${SCRIPT_DIR}/.claude/hooks/"*.sh | wc -l | tr -d ' ') hooks"
+# --- Skills ---
+echo ""
+echo "Skills:"
+SKILLS_DIR="${CLAUDE_DIR}/skills"
+mkdir -p "$SKILLS_DIR"
+
+for skill_dir in "${SCRIPT_DIR}/skills/"*/; do
+  [ -d "$skill_dir" ] || continue
+  skill_name="$(basename "$skill_dir")"
+  dst="${SKILLS_DIR}/${skill_name}"
+
+  if [ -L "$dst" ]; then
+    current="$(readlink "$dst")"
+    if [ "$current" = "$skill_dir" ] || [ "$current" = "${skill_dir%/}" ]; then
+      echo "  OK (already linked): ${skill_name}/"
+      continue
+    fi
+    rm "$dst"
+  elif [ -d "$dst" ]; then
+    backup="${dst}.backup.$(date +%s)"
+    mv "$dst" "$backup"
+    echo "  Backed up: ${skill_name}/ -> $(basename "$backup")"
   fi
 
-  # Install user-level CLAUDE.md (won't overwrite existing)
-  USER_CLAUDE="$HOME/.claude/CLAUDE.md"
-  if [ ! -f "$USER_CLAUDE" ]; then
+  ln -s "${skill_dir%/}" "$dst"
+  echo "  Linked: ${skill_name}/ -> ${skill_dir%/}"
+done
+
+# --- Claude-only targets ---
+if [ "$TARGET" = "claude" ]; then
+
+  # Hooks
+  echo ""
+  echo "Hooks:"
+  HOOKS_DIR="${CLAUDE_DIR}/hooks"
+  if [ -d "${SCRIPT_DIR}/.claude/hooks" ]; then
+    link_dir_contents "${SCRIPT_DIR}/.claude/hooks" "$HOOKS_DIR"
+    chmod +x "$HOOKS_DIR/"*.sh 2>/dev/null || true
+  fi
+
+  # Settings
+  echo ""
+  echo "Settings:"
+  link_file "${SCRIPT_DIR}/settings.json" "${CLAUDE_DIR}/settings.json"
+
+  # CLAUDE.md — only install if not present (user customizes per-machine)
+  echo ""
+  echo "CLAUDE.md:"
+  if [ ! -e "${CLAUDE_DIR}/CLAUDE.md" ]; then
     if [ -f "${SCRIPT_DIR}/examples/user-CLAUDE.md" ]; then
-      cp "${SCRIPT_DIR}/examples/user-CLAUDE.md" "$USER_CLAUDE"
-      echo "  Installed: user-level CLAUDE.md"
+      cp "${SCRIPT_DIR}/examples/user-CLAUDE.md" "${CLAUDE_DIR}/CLAUDE.md"
+      echo "  Installed: CLAUDE.md (from template — customize for this machine)"
     fi
   else
-    echo "  Skipped: ~/.claude/CLAUDE.md already exists (not overwriting)"
+    echo "  Skipped: CLAUDE.md already exists (per-machine file, not symlinked)"
   fi
+
+  # Theologian SOUL.md (referenced by skill, needs to be at ~/.claude/theologian/)
+  echo ""
+  echo "Theologian identity:"
+  THEO_DIR="${CLAUDE_DIR}/theologian"
+  mkdir -p "$THEO_DIR"
+  link_file "${SCRIPT_DIR}/skills/theologian/SOUL.md" "${THEO_DIR}/SOUL.md"
 fi
 
 echo ""
 echo "Installation complete!"
 echo ""
-echo "Next steps:"
-echo "  1. Review installed rules in: $RULES_DIR"
-if [ "$TARGET" = "claude" ]; then
-  echo "  2. Review ~/.claude/CLAUDE.md and customize for your preferences"
-  echo "  3. Copy relevant MCP configs from mcp-configs/mcp-servers.json to your project"
-  echo "  4. Create a project-specific CLAUDE.md (see examples/ for templates)"
-fi
+echo "To sync on another machine:"
+echo "  git clone https://github.com/SGridworks/Skills-and-others.git ~/Skills-and-others"
+echo "  cd ~/Skills-and-others && ./install.sh typescript python"
+echo ""
+echo "To update after a git pull:"
+echo "  ./install.sh typescript python  (safe to re-run, idempotent)"
