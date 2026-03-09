@@ -153,6 +153,9 @@ if [ "$TARGET" = "claude" ]; then
   echo ""
   echo "Settings:"
   link_file "${SCRIPT_DIR}/settings.json" "${CLAUDE_DIR}/settings.json"
+  if [ -f "${SCRIPT_DIR}/settings.local.json" ]; then
+    link_file "${SCRIPT_DIR}/settings.local.json" "${CLAUDE_DIR}/settings.local.json"
+  fi
 
   # CLAUDE.md — only install if not present (user customizes per-machine)
   echo ""
