@@ -1,0 +1,8 @@
+{
+  "_comment": "Bible API — Multi-translation Bible access via bolls.life. 5 tools, no database needed.",
+  "_repo": "https://github.com/SGridworks/bible-api-mcp",
+  "_setup": "git clone, npm install, npm run build.",
+  "command": "node",
+  "args": ["dist/index.js"],
+  "cwd": "~/Projects/bible-api-mcp"
+}

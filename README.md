@@ -17,7 +17,7 @@ claude/install.sh --target cursor typescript
 
 ```
 claude/                  # Claude Code configuration
-  skills/                # 6 workflow skills (code-review, tdd, plan, verify, build-fix, learning)
+  skills/                # 7 workflow skills (theologian, code-review, tdd, plan, verify, build-fix, learning)
   agents/                # 5 subagent definitions
   rules/                 # Coding guidelines (common + typescript, python, golang)
   contexts/              # Dynamic system prompt modes (dev, review, research)
@@ -38,6 +38,7 @@ All skills have frontmatter with `allowed-tools`, `model`, and `user-invocable` 
 
 | Skill | Model | Purpose |
 |-------|-------|---------|
+| [`/theologian`](claude/skills/theologian/) | inherit | Reformed theological research agent with 4 MCP servers, 2M+ records |
 | `/code-review` | sonnet | Structured review with severity-ranked findings |
 | `/tdd` | inherit | Test-driven development workflow |
 | `/plan` | sonnet | Phased implementation planning |

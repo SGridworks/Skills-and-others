@@ -1,0 +1,9 @@
+{
+  "_comment": "Olive Tree MCP — Personal library access (optional). 8 tools. macOS only, requires Olive Tree Bible Reader.",
+  "_repo": "https://github.com/SGridworks/olivetree-mcp",
+  "_setup": "git clone, npm install, npm run build. Reads from Olive Tree's local database.",
+  "_note": "Only useful if you own Olive Tree resources. Text is DRM-protected; this server provides metadata, navigation, and annotation access.",
+  "command": "node",
+  "args": ["dist/index.js"],
+  "cwd": "~/Projects/olivetree-mcp"
+}

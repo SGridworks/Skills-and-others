@@ -1,0 +1,12 @@
+{
+  "_comment": "Patristic MCP — 63k verse-indexed commentaries + 765 full ANF/NPNF works. 7 tools.",
+  "_repo": "https://github.com/SGridworks/patristic-mcp",
+  "_setup": "git clone, npm install, npm run build, npm run ingest, npm run ingest-writings.",
+  "_databases": {
+    "patristic.db": "63,706 verse-indexed commentaries from 318 church fathers (119 MB)",
+    "writings.db": "765 full works in 10,013 sections from 341 authors (230 MB)"
+  },
+  "command": "node",
+  "args": ["dist/server.js"],
+  "cwd": "~/Projects/patristic-mcp"
+}

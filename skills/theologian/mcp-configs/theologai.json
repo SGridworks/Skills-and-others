@@ -1,0 +1,11 @@
+{
+  "_comment": "TheologAI — Core theological research server. 12 tools, 1.4M+ records.",
+  "_repo": "https://github.com/TJ-Frederick/TheologAI",
+  "_setup": "git clone, npm install, npm run build. Databases go in data/ directory.",
+  "command": "node",
+  "args": ["dist/index.js"],
+  "cwd": "~/Projects/TheologAI",
+  "env": {
+    "PORT": ""
+  }
+}

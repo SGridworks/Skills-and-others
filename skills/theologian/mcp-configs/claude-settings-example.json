@@ -1,0 +1,28 @@
+{
+  "_comment": "Example ~/.claude/settings.json with all 4 theologian MCP servers registered. Merge into your existing settings.",
+  "mcpServers": {
+    "theologai": {
+      "command": "node",
+      "args": ["dist/index.js"],
+      "cwd": "~/Projects/TheologAI",
+      "env": {
+        "PORT": ""
+      }
+    },
+    "bible-api": {
+      "command": "node",
+      "args": ["dist/index.js"],
+      "cwd": "~/Projects/bible-api-mcp"
+    },
+    "patristic": {
+      "command": "node",
+      "args": ["dist/server.js"],
+      "cwd": "~/Projects/patristic-mcp"
+    },
+    "olivetree": {
+      "command": "node",
+      "args": ["dist/index.js"],
+      "cwd": "~/Projects/olivetree-mcp"
+    }
+  }
+}
