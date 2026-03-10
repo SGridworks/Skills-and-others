@@ -33,3 +33,6 @@ build/
 
 # Logs
 *.log
+
+# Machine-specific settings
+settings.local.json

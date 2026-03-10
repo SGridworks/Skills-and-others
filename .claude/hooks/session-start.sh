@@ -22,7 +22,9 @@ log "Session start hook triggered"
 # Detect and install dependencies
 if [ -f "${PROJECT_DIR}/package.json" ]; then
   log "Detected Node.js project, running npm install"
-  cd "$PROJECT_DIR" && npm install --prefer-offline --no-audit 2>>"$LOG_FILE" || log "npm install failed (non-fatal)"
+  if cd "$PROJECT_DIR"; then
+    npm install --prefer-offline --no-audit 2>>"$LOG_FILE" || log "npm install failed (non-fatal)"
+  fi
 elif [ -f "${PROJECT_DIR}/requirements.txt" ]; then
   log "Detected Python project, installing requirements"
   pip install -r "${PROJECT_DIR}/requirements.txt" -q 2>>"$LOG_FILE" || log "pip install failed (non-fatal)"
@@ -31,7 +33,9 @@ elif [ -f "${PROJECT_DIR}/pyproject.toml" ]; then
   pip install -e "${PROJECT_DIR}" -q 2>>"$LOG_FILE" || log "pip install failed (non-fatal)"
 elif [ -f "${PROJECT_DIR}/go.mod" ]; then
   log "Detected Go project"
-  cd "$PROJECT_DIR" && go mod download 2>>"$LOG_FILE" || log "go mod download failed (non-fatal)"
+  if cd "$PROJECT_DIR"; then
+    go mod download 2>>"$LOG_FILE" || log "go mod download failed (non-fatal)"
+  fi
 fi
 
 # Load persisted memory state if available
