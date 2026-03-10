@@ -1,72 +1,69 @@
 # Skills-and-others
 
-Claude Code configuration system for SGridworks projects. Provides reusable skills, hooks, agents, rules, commands, and contexts.
+Multi-platform AI configuration system for SGridworks. Separates Claude Code and OpenClaw content into dedicated directories.
 
 ## Quick Start
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/SGridworks/Skills-and-others.git
 cd Skills-and-others
-./install.sh typescript  # Install rules for your language
+claude/install.sh typescript python  # Install rules for your languages
 
 # For Cursor users
-./install.sh --target cursor typescript
+claude/install.sh --target cursor typescript
 ```
 
 ## Structure
 
 ```
-agents/              # 5 specialized subagent definitions
-skills/              # 6 workflow skills (code-review, tdd, plan, verify, build-fix, learning)
-commands/            # 6 slash commands
-rules/               # Coding guidelines (common + language-specific)
-hooks/               # Claude Code lifecycle hooks
-contexts/            # Dynamic system prompt modes (dev, review, research)
-mcp-configs/         # MCP server configuration templates
-memory-persistence/  # Session state save/load scripts
-examples/            # Example CLAUDE.md files for real projects
-tests/               # Validation test suite
+claude/                  # Claude Code configuration
+  skills/                # 6 workflow skills (code-review, tdd, plan, verify, build-fix, learning)
+  agents/                # 5 subagent definitions
+  rules/                 # Coding guidelines (common + typescript, python, golang)
+  contexts/              # Dynamic system prompt modes (dev, review, research)
+  examples/              # Example CLAUDE.md templates
+  mcp-configs/           # MCP server configuration templates
+  memory-persistence/    # Session state save/load scripts
+  tests/                 # Validation test suite
+  install.sh             # Configuration installer
+openclaw/                # OpenClaw 14-agent system configuration (future)
+.claude/                 # Active hooks and settings
+  hooks/                 # Lifecycle hook scripts (4 hooks)
+  settings.json          # Hook registration
 ```
 
-## Skills
+## Claude Code Skills
 
-| Skill | Purpose |
-|-------|---------|
-| code-review | Structured review with severity-ranked findings |
-| tdd | Test-driven development workflow |
-| plan | Phased implementation planning |
-| verify | Run tests, lint, typecheck, build |
-| build-fix | Diagnose and fix build errors |
-| continuous-learning | Extract reusable patterns from sessions |
+All skills have frontmatter with `allowed-tools`, `model`, and `user-invocable` fields.
 
-## Agents
+| Skill | Model | Purpose |
+|-------|-------|---------|
+| `/code-review` | sonnet | Structured review with severity-ranked findings |
+| `/tdd` | inherit | Test-driven development workflow |
+| `/plan` | sonnet | Phased implementation planning |
+| `/verify` | haiku | Run tests, lint, typecheck, build |
+| `/build-fix` | inherit | Diagnose and fix build errors |
+| `/learn` | sonnet | Extract reusable patterns from sessions |
 
-| Agent | Purpose |
-|-------|---------|
-| planner | Feature implementation planning |
-| code-reviewer | Quality and security review |
-| tdd-guide | Test-driven development guidance |
-| security-reviewer | Vulnerability identification |
-| build-resolver | Build error resolution |
+## Claude Code Agents
 
-## Commands
+All agents have frontmatter with `model`, `maxTurns`, and `permissionMode` fields.
 
-| Command | Description |
-|---------|-------------|
-| `/plan "desc"` | Plan feature implementation |
-| `/tdd` | Start TDD workflow |
-| `/code-review` | Run code review |
-| `/verify` | Run verification checks |
-| `/build-fix` | Fix build errors |
-| `/learn` | Extract session patterns |
+| Agent | Model | Max Turns | Purpose |
+|-------|-------|-----------|---------|
+| planner | sonnet | 15 | Feature implementation planning |
+| code-reviewer | sonnet | 10 | Quality and security review |
+| tdd-guide | inherit | 20 | Test-driven development guidance |
+| security-reviewer | sonnet | 10 | Vulnerability identification |
+| build-resolver | inherit | 15 | Build error resolution (worktree isolated) |
 
 ## Context Modes
 
-Use with `claude --system-prompt "$(cat contexts/dev.md)"`:
+Use with `claude --system-prompt "$(cat claude/contexts/dev.md)"`:
 
-- **dev** — Code-first, explain after
-- **review** — Analyze before suggesting, severity-ranked findings
-- **research** — Understand before acting, evidence-based
+- **dev** -- Code-first, explain after
+- **review** -- Analyze before suggesting, severity-ranked findings
+- **research** -- Understand before acting, evidence-based
 
 ## Hooks
 
@@ -75,37 +72,38 @@ Use with `claude --system-prompt "$(cat contexts/dev.md)"`:
 | SessionStart | session-start.sh | Dependency install, state restoration |
 | Stop | stop.sh | Track session activity |
 | PreCompact | pre-compact.sh | Save state before context compaction |
+| PreToolUse | guard-bash.sh | Block destructive Bash commands |
 
 ## Examples
 
-See `examples/` for complete CLAUDE.md templates:
-- `user-CLAUDE.md` — User-level global config (`~/.claude/CLAUDE.md`)
-- `saas-nextjs-CLAUDE.md` — Next.js + Supabase + Stripe
-- `go-microservice-CLAUDE.md` — Go + gRPC + PostgreSQL
-- `django-api-CLAUDE.md` — Django REST + Celery
+See `claude/examples/` for complete CLAUDE.md templates:
+- `user-CLAUDE.md` -- User-level global config (`~/.claude/CLAUDE.md`)
+- `saas-nextjs-CLAUDE.md` -- Next.js + Supabase + Stripe
+- `go-microservice-CLAUDE.md` -- Go + gRPC + PostgreSQL
+- `django-api-CLAUDE.md` -- Django REST + Celery
 
 ## Testing
 
 ```bash
-bash tests/test-hooks.sh       # Validate hooks
-bash tests/test-configs.sh     # Validate configs
-shellcheck .claude/hooks/*.sh  # Lint shell scripts
+bash claude/tests/test-hooks.sh       # Validate hooks
+bash claude/tests/test-configs.sh     # Validate configs
+shellcheck .claude/hooks/*.sh         # Lint shell scripts
 ```
 
 ## Installation
 
 ```bash
-./install.sh --help            # Show usage
-./install.sh typescript        # Install TS rules for Claude Code
-./install.sh --target cursor python  # Install Python rules for Cursor
-./install.sh typescript python golang  # Install multiple languages
+claude/install.sh --help                     # Show usage
+claude/install.sh typescript                 # Install TS rules for Claude Code
+claude/install.sh --target cursor python     # Install Python rules for Cursor
+claude/install.sh typescript python golang   # Install multiple languages
 ```
 
 ---
 
-## Setup Prompt — Full Installation via Claude Code
+## Setup Prompt -- Full Installation via Claude Code
 
-Copy and paste the prompt below into a new Claude Code session to have Claude set up everything automatically on any device. It walks through cloning the repo, running the installer, verifying the installation, and customizing the user-level config.
+Copy and paste the prompt below into a new Claude Code session to have Claude set up everything automatically on any device.
 
 <details>
 <summary><strong>Click to expand the full setup prompt</strong></summary>
@@ -121,12 +119,12 @@ Clone the Skills-and-others repo and run the installer:
 cd ~
 git clone https://github.com/SGridworks/Skills-and-others.git
 cd Skills-and-others
-./install.sh typescript python
+claude/install.sh typescript python
 ```
 
 This installs:
-- 6 rules (coding-style, git-workflow, testing, security, typescript, python) to ~/.claude/rules/
-- 3 hooks (session-start, stop, pre-compact) to ~/.claude/hooks/
+- 7 rules (coding-style, git-workflow, testing, security, typescript, python, golang) to ~/.claude/rules/
+- 4 hooks (session-start, stop, pre-compact, guard-bash) to ~/.claude/hooks/
 - User-level CLAUDE.md to ~/.claude/CLAUDE.md (if not already present)
 
 ## Step 2: Verify Installation
@@ -139,7 +137,7 @@ echo "=== Hooks ===" && ls ~/.claude/hooks/
 echo "=== User CLAUDE.md ===" && cat ~/.claude/CLAUDE.md
 ```
 
-All 6 rule files, 3 hook scripts, and the CLAUDE.md should be present.
+All 7 rule files, 4 hook scripts, and the CLAUDE.md should be present.
 
 ## Step 3: Run Tests
 
@@ -147,11 +145,11 @@ From the repo directory, run the test suite to validate everything:
 
 ```bash
 cd ~/Skills-and-others
-bash tests/test-hooks.sh
-bash tests/test-configs.sh
+bash claude/tests/test-hooks.sh
+bash claude/tests/test-configs.sh
 ```
 
-All tests should pass (30/30).
+All tests should pass.
 
 ## Step 4: Register Hooks in User Settings
 
@@ -189,21 +187,32 @@ The hooks need to be registered in the user-level settings. Check if ~/.claude/s
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/guard-bash.sh"
+          }
+        ]
+      }
     ]
   }
 }
 ```
 
-Important: If settings.json already has content (like permissions or other hooks), MERGE the hooks — don't overwrite the file.
+Important: If settings.json already has content (like permissions or other hooks), MERGE the hooks -- don't overwrite the file.
 
 ## Step 5: Customize User CLAUDE.md (Optional)
 
 Read ~/.claude/CLAUDE.md and ask me if I want to customize any of these sections:
-- Preferred languages (currently TypeScript + Python)
+- Preferred languages (currently TypeScript + Python + Shell/Bash)
 - Coding style preferences
 - Git workflow conventions
 - Testing standards
-- Any project-specific context I want globally available
+- Environment context (Mac Mini cluster, OpenClaw, local LLM stack)
 
 ## Step 6: Verify Everything Works
 
@@ -231,12 +240,12 @@ To keep configurations in sync across multiple devices, pull the latest and re-r
 ```bash
 cd ~/Skills-and-others
 git pull
-./install.sh typescript python
+claude/install.sh typescript python golang
 ```
 
 Or add this to your shell profile (`.bashrc` / `.zshrc`) for automatic sync:
 
 ```bash
 # Sync Claude Code config on shell startup (runs only if repo exists)
-[ -d ~/Skills-and-others ] && (cd ~/Skills-and-others && git pull -q 2>/dev/null && ./install.sh typescript python > /dev/null 2>&1)
+[ -d ~/Skills-and-others ] && (cd ~/Skills-and-others && git pull -q 2>/dev/null && claude/install.sh typescript python golang > /dev/null 2>&1)
 ```
