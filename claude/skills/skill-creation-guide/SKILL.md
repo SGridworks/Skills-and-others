@@ -7,7 +7,7 @@ description: >
   workflow as a reusable skill. Do NOT use for modifying existing skills (just edit
   the SKILL.md directly) or for general coding tasks.
 allowed-tools: Read, Grep, Glob, Edit, Write
-model: inherit
+model: sonnet
 user-invocable: true
 arguments: skill idea (optional)
 license: MIT

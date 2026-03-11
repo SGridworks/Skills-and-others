@@ -97,3 +97,4 @@ Solution: Report "No tests found" rather than failing. Suggest creating tests.
 - Report failures with enough detail to diagnose
 - Suggest fixes for common failures
 - Never modify code -- only read and run commands
+- If any check fails, suggest: "Run /build-fix to diagnose and fix the failures"

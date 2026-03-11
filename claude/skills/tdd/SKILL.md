@@ -4,8 +4,9 @@ description: >
   Guide test-driven development with strict red-green-refactor methodology. Use when
   user says "write tests first", "TDD", "test-driven", "red green refactor", "start
   with tests", "I want to do TDD", or asks to implement a feature using test-first
-  approach. Do NOT use for writing tests after implementation is done or for running
-  existing tests (use verify skill instead).
+  approach. Do NOT use for writing tests after implementation is done, running
+  existing tests without writing new ones (use verify skill instead), or for
+  fixing failing tests that already exist.
 allowed-tools: Read, Grep, Glob, Edit, Write, Bash
 model: inherit
 user-invocable: true
@@ -31,7 +32,7 @@ If no feature specified, ask what to implement.
 Understand what the feature should do. Define user-visible behavior and acceptance criteria.
 
 ### Step 2: Write Failing Tests (RED)
-Write test cases that describe the expected behavior. Run them -- they MUST fail. If they pass, the tests are not testing new behavior.
+Write test cases that describe the expected behavior. Show the test code written. Run them -- they MUST fail. If they pass, the tests are not testing new behavior.
 
 ### Step 3: Minimal Implementation (GREEN)
 Write the minimum code to make tests pass. No extra features, no premature optimization. Just make the tests green.
@@ -75,6 +76,35 @@ Solution: Make tests more specific to the new behavior being added
 Error: Can't achieve 80% coverage
 Cause: Complex branching logic or error handling paths
 Solution: Add edge case tests for each branch -- empty inputs, nulls, boundary values
+
+## Output Format
+
+### RED Phase
+```
+Test: [test name]
+Status: FAILING (expected)
+Error: [failure message]
+```
+
+### GREEN Phase
+```
+Test: [test name]
+Status: PASSING
+Implementation: [file:line]
+```
+
+### REFACTOR Phase
+```
+Change: [what was refactored]
+Tests: Still PASSING
+```
+
+### Summary
+| Phase | Tests Written | Tests Passing | Coverage |
+|-------|--------------|---------------|----------|
+| RED   | N            | 0             | --       |
+| GREEN | N            | N             | X%       |
+| REFACTOR | N         | N             | X%       |
 
 ## Rules
 - NEVER write implementation before tests

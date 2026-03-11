@@ -5,8 +5,9 @@ description: >
   causes and applying minimal fixes. Use when user says "build failed", "fix this
   error", "compilation error", "dependency issue", "npm install failed", "type error",
   "import not found", or pastes an error message from a build/compile/test failure.
-  Do NOT use for logic bugs (use code-review), test failures due to wrong assertions
-  (fix the logic), or general refactoring.
+  Do NOT use for logic bugs (use code-review), test failures due to incorrect expected
+  values or wrong logic (use code-review), or general refactoring. DO use for test
+  failures caused by missing deps, bad imports, or config issues.
 allowed-tools: Read, Grep, Glob, Edit, Write, Bash
 model: inherit
 user-invocable: true
@@ -79,6 +80,25 @@ Solution: Step back, trace the dependency chain, find the actual root cause
 Error: Lock file conflicts
 Cause: Lock file out of sync with package.json
 Solution: Do NOT delete the lock file. Run the package manager's resolution command (e.g., `npm install`, `go mod tidy`)
+
+## Output Format
+
+### Diagnosis
+- **Error type:** [Dependency | Type/Syntax | Configuration | Runtime]
+- **Root cause:** [1-2 sentence explanation]
+- **File:** [path:line]
+
+### Fix Applied
+- [description of the change]
+
+### Verification
+```
+Command: [the command that was re-run]
+Result: [PASS/FAIL]
+```
+
+### Explanation
+[What was wrong and why the fix works]
 
 ## Rules
 - Fix the error, not symptoms -- find root cause

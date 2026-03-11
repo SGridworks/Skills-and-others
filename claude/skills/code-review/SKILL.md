@@ -27,7 +27,7 @@ If no scope specified, review all uncommitted changes (staged + unstaged).
 ## Instructions
 
 ### Step 1: Gather Changes
-Read all changed files. Use `git diff` for unstaged, `git diff --cached` for staged, or read the specified file/branch.
+Read all changed files. Use `git diff` for unstaged, `git diff --cached` for staged, or read the specified file/branch. If scope is a file path, read the file directly -- skip git diff.
 
 ### Step 2: Understand Context
 Determine the purpose of the changes. Read surrounding code to understand intent.
@@ -58,21 +58,28 @@ Determine the purpose of the changes. Read surrounding code to understand intent
 - Missing or misleading tests
 
 ### Step 7: Rank and Report
-Categorize all findings as Critical / High / Medium / Low.
+Categorize all findings using the severity rubric. You MUST check and report on all 4 dimensions even if Critical issues are found early. Group related instances of the same pattern into a single finding.
+
+## Severity Rubric
+
+- **Critical** -- Exploitable security flaw, data loss bug, or crash in production path
+- **High** -- Correctness bug affecting output, missing error handling at boundaries
+- **Medium** -- Performance issue, missing validation, resource leak risk
+- **Low** -- Naming, style, maintainability, missing tests for non-critical paths
 
 ## Output Format
 
 ### Critical
-- [file:line] Description and suggested fix
+- [file:line] [security|correctness|performance|maintainability] Description and suggested fix
 
 ### High
-- [file:line] Description and suggested fix
+- [file:line] [category] Description and suggested fix
 
 ### Medium
-- [file:line] Description and suggested fix
+- [file:line] [category] Description and suggested fix
 
 ### Low
-- [file:line] Description and suggested fix
+- [file:line] [category] Description and suggested fix
 
 ### Summary
 [1-2 sentences on overall quality and recommendation: approve, request changes, or block]
@@ -111,3 +118,5 @@ Solution: Review in batches -- specify individual files or directories
 - Verify error handling at system boundaries
 - Check that tests exist for new functionality
 - Suggest fixes, don't just point out problems
+- MUST report on all 4 dimensions -- do not short-circuit after finding Critical issues
+- Group related instances into a single finding with all line references

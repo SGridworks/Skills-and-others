@@ -5,8 +5,9 @@ description: >
   current session and persist them for future use. Use when user says "what did we
   learn", "save this pattern", "extract learnings", "remember this", "session
   retrospective", or at the end of a productive session (10+ messages). Do NOT use
-  during active development -- wait until a natural stopping point or when explicitly
-  asked.
+  during active development, for saving temporary task state, or for remembering
+  things already in CLAUDE.md -- wait until a natural stopping point or when
+  explicitly asked.
 allowed-tools: Read, Grep, Glob, Write
 model: sonnet
 user-invocable: true
@@ -32,14 +33,19 @@ Scan the conversation for moments where:
 - A project convention was established
 - An effective debugging technique was used
 
-### Step 2: Evaluate Each Pattern
+### Step 2: Check for Duplicates
+Read existing patterns in `~/.claude/agent-memory/learned/` before writing. If a similar pattern exists, update its confidence level or add new context rather than creating a duplicate.
+
+### Step 3: Evaluate Each Pattern
 For each candidate pattern, ask:
 - Is this genuinely reusable in future sessions?
 - Is it non-obvious enough to be worth saving?
 - Does it have enough context to be useful standalone?
+- Does it already exist in CLAUDE.md or the learned patterns directory?
 
-### Step 3: Format and Save
+### Step 4: Format and Save
 Write each pattern as a markdown file to `~/.claude/agent-memory/learned/`.
+After saving, output a summary of what was saved (pattern names + confidence levels).
 
 ## Output Format
 
