@@ -26,5 +26,15 @@
   "vercel": {
     "type": "url",
     "url": "https://mcp.vercel.com/sse"
+  },
+  "context7": {
+    "_comment": "Real-time library documentation lookup. Install: npm install -g @context7/mcp-server",
+    "command": "npx",
+    "args": ["-y", "@context7/mcp-server"]
+  },
+  "mcp-visualization-duckdb": {
+    "_comment": "DuckDB-powered data analysis and visualization. Install: pip install mcp-visualization-duckdb",
+    "command": "uvx",
+    "args": ["mcp-visualization-duckdb"]
   }
 }

@@ -1,0 +1,41 @@
+# Python build artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.whl
+
+# Testing/linting caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Node (if mixed project)
+node_modules/
+.next/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Data files (adjust per project)
+*.csv
+*.parquet
+*.h5
+*.pkl
+
+# Secrets
+.env
+.env.*
+credentials.json

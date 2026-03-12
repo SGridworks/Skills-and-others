@@ -1,4 +1,7 @@
 {
+  "ENABLE_TOOL_SEARCH": "auto",
+  "includeGitInstructions": false,
+  "autoMemoryEnabled": true,
   "hooks": {
     "SessionStart": [
       {
@@ -29,6 +32,28 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/post-tool-format.sh"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/notify.sh"
+          }
+        ]
+      }
     ]
-  }
+  },
+  "skipDangerousModePermissionPrompt": true
 }

@@ -1,3 +1,9 @@
+---
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+---
+
 # TypeScript Rules
 
 - Use strict mode (`"strict": true` in tsconfig)

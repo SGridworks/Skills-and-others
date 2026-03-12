@@ -10,6 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 TARGET="claude"
 LANGUAGES=()
+INSTALLED_COUNTS=(rules:0 skills:0 agents:0 hooks:0)
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -51,6 +52,12 @@ case "$TARGET" in
 esac
 
 RULES_DIR="${CLAUDE_DIR}/rules"
+
+# Counters
+RULE_COUNT=0
+SKILL_COUNT=0
+AGENT_COUNT=0
+HOOK_COUNT=0
 
 echo "Installing Skills-and-others (symlink mode)..."
 echo "Repo: ${SCRIPT_DIR}"
@@ -98,13 +105,21 @@ mkdir -p "$RULES_DIR"
 
 # Common rules
 if [ -d "${SCRIPT_DIR}/rules/common" ]; then
-  link_dir_contents "${SCRIPT_DIR}/rules/common" "$RULES_DIR"
+  for f in "${SCRIPT_DIR}/rules/common"/*; do
+    [ -e "$f" ] || continue
+    link_file "$f" "${RULES_DIR}/$(basename "$f")"
+    RULE_COUNT=$((RULE_COUNT + 1))
+  done
 fi
 
 # Language-specific rules
 for lang in "${LANGUAGES[@]}"; do
   if [ -d "${SCRIPT_DIR}/rules/${lang}" ]; then
-    link_dir_contents "${SCRIPT_DIR}/rules/${lang}" "$RULES_DIR"
+    for f in "${SCRIPT_DIR}/rules/${lang}"/*; do
+      [ -e "$f" ] || continue
+      link_file "$f" "${RULES_DIR}/$(basename "$f")"
+      RULE_COUNT=$((RULE_COUNT + 1))
+    done
   else
     echo "  WARNING: No rules found for language: ${lang}"
   fi
@@ -125,6 +140,7 @@ for skill_dir in "${SCRIPT_DIR}/skills/"*/; do
     current="$(readlink "$dst")"
     if [ "$current" = "$skill_dir" ] || [ "$current" = "${skill_dir%/}" ]; then
       echo "  OK (already linked): ${skill_name}/"
+      SKILL_COUNT=$((SKILL_COUNT + 1))
       continue
     fi
     rm "$dst"
@@ -136,6 +152,20 @@ for skill_dir in "${SCRIPT_DIR}/skills/"*/; do
 
   ln -s "${skill_dir%/}" "$dst"
   echo "  Linked: ${skill_name}/ -> ${skill_dir%/}"
+  SKILL_COUNT=$((SKILL_COUNT + 1))
+done
+
+# --- Agents ---
+echo ""
+echo "Agents:"
+AGENTS_DIR="${CLAUDE_DIR}/agents"
+mkdir -p "$AGENTS_DIR"
+
+for agent_file in "${SCRIPT_DIR}/agents/"*.md; do
+  [ -e "$agent_file" ] || continue
+  agent_name="$(basename "$agent_file")"
+  link_file "$agent_file" "${AGENTS_DIR}/${agent_name}"
+  AGENT_COUNT=$((AGENT_COUNT + 1))
 done
 
 # --- Claude-only targets ---
@@ -146,7 +176,11 @@ if [ "$TARGET" = "claude" ]; then
   echo "Hooks:"
   HOOKS_DIR="${CLAUDE_DIR}/hooks"
   if [ -d "${SCRIPT_DIR}/.claude/hooks" ]; then
-    link_dir_contents "${SCRIPT_DIR}/.claude/hooks" "$HOOKS_DIR"
+    for f in "${SCRIPT_DIR}/.claude/hooks"/*.sh; do
+      [ -e "$f" ] || continue
+      link_file "$f" "${HOOKS_DIR}/$(basename "$f")"
+      HOOK_COUNT=$((HOOK_COUNT + 1))
+    done
     chmod +x "$HOOKS_DIR/"*.sh 2>/dev/null || true
   fi
 
@@ -160,13 +194,13 @@ if [ "$TARGET" = "claude" ]; then
     echo "  Installed: settings.local.json (copy, not symlink — customize for this machine)"
   fi
 
-  # CLAUDE.md — only install if not present (user customizes per-machine)
+  # CLAUDE.md -- only install if not present (user customizes per-machine)
   echo ""
   echo "CLAUDE.md:"
   if [ ! -e "${CLAUDE_DIR}/CLAUDE.md" ]; then
     if [ -f "${SCRIPT_DIR}/examples/user-CLAUDE.md" ]; then
       cp "${SCRIPT_DIR}/examples/user-CLAUDE.md" "${CLAUDE_DIR}/CLAUDE.md"
-      echo "  Installed: CLAUDE.md (from template — customize for this machine)"
+      echo "  Installed: CLAUDE.md (from template -- customize for this machine)"
     fi
   else
     echo "  Skipped: CLAUDE.md already exists (per-machine file, not symlinked)"
@@ -183,7 +217,13 @@ if [ "$TARGET" = "claude" ]; then
 fi
 
 echo ""
+echo "========================================="
 echo "Installation complete!"
+echo "========================================="
+echo "  Rules:  ${RULE_COUNT}"
+echo "  Skills: ${SKILL_COUNT}"
+echo "  Agents: ${AGENT_COUNT}"
+echo "  Hooks:  ${HOOK_COUNT}"
 echo ""
 echo "To sync on another machine:"
 echo "  git clone https://github.com/SGridworks/Skills-and-others.git ~/Skills-and-others"
