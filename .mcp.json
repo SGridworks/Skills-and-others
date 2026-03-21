@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "theologai": {
+      "command": "node",
+      "args": ["dist/index.js"],
+      "cwd": "/root/Projects/TheologAI",
+      "env": {
+        "PORT": ""
+      }
+    },
+    "bible-api": {
+      "command": "node",
+      "args": ["dist/index.js"],
+      "cwd": "/root/Projects/bible-api-mcp"
+    },
+    "patristic": {
+      "command": "node",
+      "args": ["dist/server.js"],
+      "cwd": "/root/Projects/patristic-mcp"
+    }
+  }
+}
