@@ -1,180 +1,282 @@
 ---
 name: self-improve
 description: >
-  Run autonomous improvement loops on a codebase overnight, inspired by Karpathy's
-  autoresearch. Iteratively modifies code, measures a metric, keeps improvements,
-  discards regressions. Use when user says "run self-improve", "autonomous improvement",
-  "nightly improvement", "optimize overnight", "run the Karpathy loop", "auto-improve",
-  "self-improve this repo", or wants unattended iterative optimization of test speed,
-  build time, lint warnings, bundle size, test coverage, or shell script quality.
+  Run autonomous improvement cycles on a codebase overnight. Defines a purpose and
+  improvement goals, spawns explorer agents to find candidates in parallel, then
+  evaluates all candidates in a tournament to pick the best. Use when user says
+  "run self-improve", "autonomous improvement", "nightly improvement", "optimize
+  overnight", "auto-improve", "self-improve this repo", or wants unattended
+  iterative optimization of any measurable aspect of the codebase.
   Do NOT use for one-off bug fixes (use build-fix), code review (use code-review),
   manual refactoring, or any task where the user wants to be in the loop for each change.
 allowed-tools: Read, Grep, Glob, Edit, Write, Bash
 model: sonnet
 user-invocable: true
-arguments: target (optional -- target ID from targets.md, or "all" to rotate through targets by priority)
+arguments: target (optional -- target ID from targets.md, a free-form purpose statement, or "all")
 license: MIT
 metadata:
   author: SGridworks
-  version: 1.0.0
+  version: 2.0.0
   category: workflow
-  tags: [autonomous, optimization, self-improvement, karpathy-loop, nightly]
+  tags: [autonomous, optimization, self-improvement, nightly, tournament]
 ---
 
 # Self-Improve Skill
 
-Autonomous iterative improvement of a codebase. Inspired by [Karpathy's autoresearch](https://github.com/karpathy/autoresearch) -- the greedy hill-climbing loop over code modifications with a single metric as the objective function.
+Autonomous iterative improvement of a codebase. Inspired by Karpathy's autoresearch
+but redesigned around **purpose-driven exploration with tournament selection**.
 
-**Core idea:** Modify code → evaluate metric → keep if better → repeat.
+**Core idea:** Define purpose → set goals → explore in parallel → evaluate all candidates → pick the best.
 
 ## Arguments
 
-- `$ARGUMENTS` -- Target ID (e.g., `test-speed`, `lint-warnings`) or `all` for priority rotation.
-- If no argument, prompt the user to select a target or default to `all`.
+- `$ARGUMENTS` -- A target ID (e.g., `test-speed`), a free-form purpose (e.g., "make the API response times faster"), or `all`.
+- If no argument, prompt the user to define a purpose or select a target.
 
 ## Instructions
 
-### Step 1: Detect Project Environment
+### Phase 1: Define Purpose
 
-Scan the repository to determine:
+Every run starts by answering **why** before **what**.
 
-1. **Language/framework** -- Check for `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `Makefile`
-2. **Test command** -- `npm test`, `pytest`, `cargo test`, `go test ./...`, `make test`
-3. **Build command** -- `npm run build`, `python -m build`, `cargo build`, `go build`, `make`
-4. **Lint command** -- `npm run lint`, `flake8`, `clippy`, `golangci-lint`
-5. **Coverage command** -- `npm test -- --coverage`, `pytest --cov`, `cargo tarpaulin`
+1. If `$ARGUMENTS` is a known target ID from `references/targets.md`:
+   - Load the target definition
+   - Generate a purpose statement from it (e.g., "Reduce test suite execution time so CI feedback is faster for developers")
 
-Set environment variables: `$TEST_CMD`, `$BUILD_CMD`, `$LINT_CMD`, `$COVERAGE_CMD`.
+2. If `$ARGUMENTS` is a free-form purpose statement:
+   - Parse the intent
+   - Map it to one or more targets from `references/targets.md`, OR
+   - Define a new ad-hoc target with metric, eval_command, and scope
 
-If any command cannot be detected, skip targets that depend on it and note which targets are unavailable.
+3. If `$ARGUMENTS` is `all` or empty:
+   - Scan the repository (see environment detection below)
+   - Identify the highest-value improvement areas
+   - Generate a purpose statement for each
 
-### Step 2: Select Target(s)
+**Output a Purpose Brief:**
 
-If `$ARGUMENTS` is a specific target ID:
-- Load that target definition from `references/targets.md`
-- Verify the required commands exist
+```markdown
+## Purpose Brief
 
-If `$ARGUMENTS` is `all` or empty:
-- Load all targets from `references/targets.md`
-- Sort by priority (1 = highest)
-- Skip targets whose required commands are unavailable
-- Allocate experiments proportionally to priority
+**Why:** [one sentence -- the business/developer value of this improvement]
+**What:** [the aspect being improved]
+**Metric:** [how we measure it]
+**Current baseline:** [measured value]
+**Goal:** [specific target value or percentage improvement]
+**Scope:** [which files/areas are in play]
+**Constraints:** [what must NOT break]
+```
 
-### Step 3: Create Improvement Branch
+### Phase 2: Detect Environment and Capture Baseline
+
+1. **Detect project environment:**
+   - Language/framework: Check for `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `Makefile`
+   - Test command, build command, lint command, coverage command
+   - Set `$TEST_CMD`, `$BUILD_CMD`, `$LINT_CMD`, `$COVERAGE_CMD`
+
+2. **Capture baseline metric:**
+   - Run the eval_command for the target
+   - Record the numeric baseline value
+   - Run it 3 times if the metric is timing-based (use the median to account for variance)
+
+3. **Set improvement goal:**
+   - Based on the purpose, set a specific, measurable goal
+   - Example: "Reduce from 47 lint warnings to < 20" or "Improve test coverage from 62% to > 75%"
+   - Goals should be ambitious but achievable in one nightly run
+
+If baseline capture fails, stop and report the error -- do not proceed blind.
+
+### Phase 3: Create Branch and Initialize
 
 ```bash
-BRANCH="auto/self-improve/$(date +%Y-%m-%d)"
+BRANCH="auto/self-improve/$(date +%Y-%m-%d)-${TARGET}"
 git checkout -b "$BRANCH"
 ```
 
-Initialize results.tsv if it does not exist:
+Initialize the run log:
 
 ```bash
-echo -e "commit\ttarget\tmetric\tbaseline\tdelta\tstatus\tdescription\ttimestamp" > results.tsv
+mkdir -p .self-improve
+cat > .self-improve/run.json <<INIT
+{
+  "date": "$(date -Iseconds)",
+  "purpose": "$PURPOSE",
+  "target": "$TARGET",
+  "baseline": $BASELINE,
+  "goal": "$GOAL",
+  "candidates": [],
+  "winner": null
+}
+INIT
 ```
 
-Add `results.tsv` to `.gitignore` if not already there (it should NOT be committed).
+Add `.self-improve/` to `.gitignore` if not already present.
 
-### Step 4: Capture Baseline
+### Phase 4: Explore -- Spawn Candidate Agents
 
-For each selected target, run the eval_command and record the baseline:
+This is the key difference from greedy hill-climbing. Instead of one agent making
+sequential keep/discard decisions, we spawn **multiple explorer agents in parallel**,
+each pursuing a different strategy.
 
-```bash
-BASELINE=$($EVAL_CMD)
-echo "Baseline for $TARGET: $BASELINE"
-```
+1. **Select strategies** from `references/strategies.md` for the current target.
+   Pick 3-5 diverse strategies spanning different risk tiers (A, B, C).
 
-If baseline capture fails, skip that target and note the error.
+2. **Spawn explorer agents** -- each in its own worktree:
 
-### Step 5: Run the Karpathy Loop
+   Each explorer agent receives:
+   - The Purpose Brief from Phase 1
+   - The baseline metric and goal
+   - ONE assigned strategy (or a small cluster of related strategies)
+   - The scoring criteria from `references/scoring.md`
+   - The mutable scope from the target definition
+   - A candidate ID (e.g., `candidate-1`, `candidate-2`)
 
-For each target (in priority order), launch the self-improver agent:
+   Each explorer agent:
+   - Reads the relevant code
+   - Implements improvements following its assigned strategy
+   - Makes one or more commits (each atomic and clean)
+   - Runs the test gate to verify nothing is broken
+   - Runs the eval_command to measure its own result
+   - Reports back: metric value, description of changes, number of commits, diff stats
 
-Pass to the agent:
-- The target definition (from targets.md)
-- The baseline metric value
-- Path to results.tsv
-- Max experiments for this target
-- The current branch name
-- The scoring rules (from scoring.md)
-- The strategy catalog (from strategies.md)
+3. **Explorers work independently.** They do NOT see each other's changes.
+   This prevents groupthink and ensures diverse approaches.
 
-The agent runs autonomously until:
-- `max_experiments` reached for this target
-- 5 consecutive crashes
-- All strategies exhausted
+4. **Budget per explorer:** Each explorer gets a subset of the total experiment budget
+   (e.g., if max_experiments = 20 and we have 4 explorers, each gets ~5 experiments
+   to iterate within their strategy before reporting their best result).
 
-Then move to the next target.
+### Phase 5: Evaluate -- Tournament Selection
 
-### Step 6: Generate Summary Report
+Once all explorers report back, run a tournament:
 
-After all targets are processed, produce a summary:
+1. **Collect candidates:**
+   Gather each explorer's best result:
+   ```
+   candidate | strategy | metric_value | delta | commits | lines_changed | tests_pass
+   ```
+
+2. **Disqualify** any candidate where:
+   - Tests do not pass
+   - Metric is worse than baseline
+   - Changes are outside the allowed scope
+
+3. **Rank qualifying candidates** using the scoring formula from `references/scoring.md`:
+   - Primary: metric improvement (delta from baseline toward goal)
+   - Secondary: simplicity (fewer lines changed, fewer commits = tiebreaker)
+   - Tertiary: goal proximity (how close to the stated goal)
+
+4. **Independent verification** -- spawn the evaluator agent to:
+   - Check out each qualifying candidate's branch
+   - Re-run the eval_command independently (explorers cannot be trusted to grade themselves)
+   - Run the full test suite (not just the test gate)
+   - Verify the diff is within scope
+   - Run eval 3 times for timing-based metrics (use median)
+
+5. **Pick the winner:**
+   - The candidate with the best verified metric that passes all checks
+   - If multiple candidates are within the noise floor of each other, pick the simpler one
+   - If NO candidate improves the metric, report "no improvement found" -- do not force a bad change
+
+### Phase 6: Merge Winner and Iterate
+
+If a winner is found:
+
+1. **Cherry-pick or merge** the winner's commits onto the improvement branch
+2. **Update baseline** to the winner's metric value
+3. **Log the round** in `.self-improve/run.json`
+
+Then decide whether to iterate:
+
+- If the goal has been met → stop, move to reporting
+- If the goal has NOT been met AND the budget allows → run another round (Phase 4-5)
+  with the new baseline, excluding strategies already tried
+- If the budget is exhausted → stop, report partial progress
+- Max 3 rounds per target per night (to prevent runaway loops)
+
+### Phase 7: Generate Report
 
 ```markdown
 # Self-Improve Report -- [date]
 
-## Results by Target
+## Purpose
+[The purpose brief from Phase 1]
 
-### [target-id]
-- Baseline: [value]
-- Final: [value]
-- Improvement: [delta] ([percentage]%)
-- Experiments: [kept]/[total] kept
-- Best change: [description of highest-impact keep]
+## Results
 
-## Experiment Log
-[Top 10 experiments by impact, from results.tsv]
+| Metric | Baseline | Goal | Final | Progress |
+|--------|----------|------|-------|----------|
+| [name] | [value]  | [value] | [value] | [%] toward goal |
+
+## Winning Strategy
+[Which strategy won the tournament and why]
+
+## Candidates Evaluated
+| Candidate | Strategy | Metric | Delta | Verdict |
+|-----------|----------|--------|-------|---------|
+| candidate-1 | [name] | [value] | [delta] | winner / disqualified / runner-up |
+| candidate-2 | [name] | [value] | [delta] | ... |
+
+## Rounds
+[How many rounds were run, and what each round contributed]
+
+## Changes Made
+[Summary of commits on the improvement branch]
 
 ## Branch
-All improvements on branch: `auto/self-improve/YYYY-MM-DD`
+`auto/self-improve/YYYY-MM-DD-target`
 Ready for human review and merge.
 ```
 
-### Step 7: Notify
+### Phase 8: Deliver
 
-Output the summary report. If the project has a notification mechanism (e.g., GitHub PR), create a draft PR with the summary as the body:
-
-- Title: `auto: self-improve [date] -- [N] improvements`
-- Body: The summary report from Step 6
-- Base: main branch
-- Head: the improvement branch
-- Mark as draft (human must review before merge)
+1. Output the report
+2. Create a draft PR if GitHub is available:
+   - Title: `auto: [purpose summary] -- [metric delta]`
+   - Body: The report from Phase 7
+   - Base: main branch
+   - Mark as draft
+3. If no PR mechanism, leave the branch ready for manual review
 
 ## Examples
 
-Example 1: Nightly lint cleanup
+Example 1: Purpose-driven lint cleanup
 User says: `/self-improve lint-warnings`
-Actions:
-1. Detect project uses TypeScript + ESLint
-2. Set `$LINT_CMD` to `npm run lint`
-3. Create branch `auto/self-improve/2026-03-24`
-4. Baseline: 47 warnings
-5. Agent runs 20 experiments:
-   - Exp 1: Remove 12 unused imports → 35 warnings → KEEP
-   - Exp 2: Add return types to 8 functions → 27 warnings → KEEP
-   - Exp 3: Fix naming conventions → 24 warnings → KEEP
-   - ...
-6. Final: 11 warnings (76% reduction)
-7. Draft PR created for morning review
+Flow:
+1. Purpose: "Reduce lint warnings so the codebase is cleaner and CI noise is lower"
+2. Baseline: 47 warnings, Goal: < 15 warnings
+3. Spawn 4 explorers:
+   - Explorer A: Remove unused imports and variables
+   - Explorer B: Add missing type annotations
+   - Explorer C: Fix naming convention violations
+   - Explorer D: Resolve deprecation warnings
+4. Tournament results:
+   - A: 35 warnings (12 fixed) -- QUALIFIED
+   - B: 29 warnings (18 fixed) -- QUALIFIED
+   - C: 41 warnings (6 fixed) -- QUALIFIED
+   - D: 44 warnings (3 fixed) -- QUALIFIED
+5. Winner: Explorer B (best delta), verified independently
+6. Round 2 with new baseline 29, spawn new explorers
+7. Final: 11 warnings (76% reduction), goal met
+8. Draft PR created
 
-Example 2: Overnight full sweep
+Example 2: Free-form purpose
+User says: `/self-improve "make our API tests less flaky"`
+Flow:
+1. Purpose: "Reduce test flakiness so CI results are trustworthy"
+2. Metric defined ad-hoc: run test suite 5 times, count failures
+3. Baseline: 3/5 runs have at least one failure
+4. Explorers target: timing-dependent assertions, shared mutable state, missing test isolation, race conditions
+5. Tournament picks the candidate with 0/5 flaky runs
+6. Report and PR
+
+Example 3: Overnight full sweep
 User says: `/self-improve all`
-Actions:
-1. Detect project environment
-2. Select targets by priority: shellcheck-issues (1), lint-warnings (2), test-speed (2), test-coverage (3), build-time (3), bundle-size (4)
-3. Create branch, capture baselines
-4. Run loop for each target, allocating experiments proportionally
-5. Summary: 4 shellcheck fixes, 15 lint fixes, 2 test speedups, 3 new test files
-6. Draft PR with full report
-
-Example 3: Single target with limited scope
-User says: `/self-improve test-speed`
-Actions:
-1. Detect `npm test` as test command
-2. Baseline: 34.2s
-3. Agent experiments with parallelization, fixture optimization, mock improvements
-4. Final: 28.1s (18% faster)
-5. 6 kept commits, all tests still passing
+Flow:
+1. Detect environment, identify top 3 targets by priority
+2. Run Phase 1-6 for each target sequentially
+3. Consolidated report covering all targets
+4. One PR per target, or one combined PR
 
 ## Troubleshooting
 
@@ -184,29 +286,30 @@ Solution: Set `$TEST_CMD` manually before running, or add a `test` script to pac
 
 Error: Baseline capture fails
 Cause: The eval command errors out before producing a metric
-Solution: Run the eval command manually to debug. Common issues: missing dependencies, wrong working directory
+Solution: Run the eval command manually to debug -- missing dependencies, wrong working directory
 
-Error: All experiments crash
+Error: All explorers crash
 Cause: The test gate or eval command is unstable
-Solution: Check that tests pass reliably on the current branch before starting self-improve. Flaky tests will cause spurious crashes.
+Solution: Verify tests pass reliably before starting. Flaky tests poison the tournament.
 
-Error: No improvement after max experiments
-Cause: The codebase may already be well-optimized for this target, or strategies need updating
-Solution: Check results.tsv for patterns. Add new strategies to strategies.md. Try a different target.
+Error: No candidate beats baseline
+Cause: Codebase may be well-optimized, or strategies need updating
+Solution: This is a valid outcome -- report "no improvement found" honestly. Add new strategies to strategies.md.
 
-Error: Agent modifies files outside scope
-Cause: Bug in agent instructions or ambiguous scope definition
-Solution: Review the target's scope.mutable definition. The agent MUST be constrained to only those paths.
+Error: Explorers produce conflicting changes
+Cause: Two explorers modified the same file differently
+Solution: Each explorer works in an isolated worktree. Only the winner's changes are merged.
 
 ## Rules
 
+- **Purpose first** -- Every run must have a clear purpose statement before any code is touched.
+- **Goals are explicit** -- Set a measurable target before exploring. "Make it better" is not a goal.
 - **Human reviews everything** -- Changes land on a branch, never main. A human must review and merge.
-- **Tests are sacred** -- No change that breaks existing tests is ever kept.
-- **One change per commit** -- Every experiment is a single, atomic, reviewable commit.
-- **No new dependencies** -- The agent works within existing packages only.
-- **Log everything** -- Every experiment (keep, discard, crash) is recorded in results.tsv.
-- **Simplicity wins** -- Removing code that maintains metric parity is an improvement.
-- **Scope is enforced** -- The agent MUST NOT touch files outside the target's mutable scope.
-- **Budget is hard** -- max_experiments and time_budget are not suggestions, they are limits.
-- **Git is the undo mechanism** -- Always commit before eval, always reset on failure.
-- **Context window hygiene** -- Redirect command output to files, grep for metrics only.
+- **Tests are sacred** -- No candidate that breaks existing tests can win the tournament.
+- **Independent verification** -- Explorer self-reported metrics are verified by a separate evaluator.
+- **Simplicity wins ties** -- When two candidates are within noise floor, the simpler one wins.
+- **No new dependencies** -- Explorers work within existing packages only.
+- **Scope is enforced** -- Explorers MUST NOT touch files outside the target's mutable scope.
+- **Budget is hard** -- max_experiments, max rounds (3), and time_budget are enforced.
+- **Honest reporting** -- If nothing improved, say so. Never force a bad change to show progress.
+- **Context window hygiene** -- Redirect command output to log files, grep for metrics only.
