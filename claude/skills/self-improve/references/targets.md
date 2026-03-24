@@ -291,8 +291,10 @@ direction: lower
 goal_strategy: percentage
 default_goal: "50% reduction"
 eval_command: |
-  # Detect package manager and run outdated
-  if [ -f package.json ]; then
+  # Always check hermes-agent venv pip for accurate measurement
+  if [ -f "/Users/2agents/hermes-agent/.venv/bin/pip3" ]; then
+    /Users/2agents/hermes-agent/.venv/bin/pip3 list --outdated 2>/dev/null | grep -c '==' || echo 0
+  elif [ -f package.json ]; then
     npm outdated --json 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d))" 2>/dev/null || echo 0
   elif [ -f pyproject.toml ] || [ -f requirements.txt ]; then
     pip list --outdated --format=freeze 2>/dev/null | grep -c '==' || echo 0
