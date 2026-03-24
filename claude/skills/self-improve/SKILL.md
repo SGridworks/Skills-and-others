@@ -35,6 +35,28 @@ but redesigned around **purpose-driven exploration with tournament selection**.
 
 ## Instructions
 
+### Phase 0: Pre-Flight Health Check
+
+**Run before ANY changes are made.** This prevents explorers from working from a broken baseline.
+
+```
+1. Git state check:
+   git status --porcelain
+   If output is non-empty → ABORT. "Working tree is dirty. Commit or stash changes before running self-improve."
+
+2. Test baseline check:
+   $TEST_CMD > /tmp/baseline-test.log 2>&1
+   If exit code ≠ 0 → ABORT. "Baseline tests are failing. Fix tests before running self-improve."
+
+3. Dependency check:
+   If package manager (npm, pip, cargo) reports missing deps → ABORT. "Dependencies not installed. Run install first."
+
+4. Disk space check:
+   df -k . | tail -1 | awk '{print $4}' < 1000000 → WARN. "Low disk space — explorers may fail."
+```
+
+If any ABORT triggers, stop immediately and report the error. Do not proceed to Phase 1.
+
 ### Phase 1: Define Purpose
 
 Every run starts by answering **why** before **what**.
@@ -47,6 +69,25 @@ Every run starts by answering **why** before **what**.
    - Parse the intent
    - Map it to one or more targets from `references/targets.md`, OR
    - Define a new ad-hoc target with metric, eval_command, and scope
+
+   **Ad-hoc targets require user confirmation before proceeding:**
+
+   Show the constructed target definition and ask:
+
+   ```
+   ## Ad-Hoc Target Proposed
+
+   **Metric:** [what will be measured]
+   **Eval command:** [the exact command that will be run]
+   **Goal:** [derived from baseline + stated purpose]
+   **Scope:** [files that will be modified]
+
+   I'll run this 3 times to establish baseline, then spawn explorers.
+
+   Proceed? (yes/no)
+   ```
+
+   If user says no → stop. If user modifies the target definition → update before proceeding.
 
 3. If `$ARGUMENTS` is `all` or empty:
    - Scan the repository (see environment detection below)
@@ -151,10 +192,18 @@ each pursuing a different strategy.
 Once all explorers report back, run a tournament:
 
 1. **Collect candidates:**
-   Gather each explorer's best result:
+   Gather each explorer's best result from their worktrees:
    ```
-   candidate | strategy | metric_value | delta | commits | lines_changed | tests_pass
+   candidate | worktree_path | strategy | metric_value | delta | commits | lines_changed | tests_pass
    ```
+   Format as a table and pass to the evaluator agent. Also record the **improvement branch name**
+   (the branch that will receive the winner's commits) and the **base branch** (the branch explorers
+   diff against -- always the improvement branch, NOT main).
+
+   **Critical:** Each explorer's worktree is at `../.self-improve/worktrees/candidate-N/`.
+   The improvement branch is `.self-improve/auto/self-improve-YYYY-MM-DD-TARGET`.
+   Explorers commit to their worktree's branch. The evaluator must diff from the
+   improvement branch (not main) to capture only the explorer's changes.
 
 2. **Disqualify** any candidate where:
    - Tests do not pass
@@ -193,8 +242,34 @@ Then decide whether to iterate:
   with the new baseline, excluding strategies already tried
 - If the budget is exhausted → stop, report partial progress
 - Max 3 rounds per target per night (to prevent runaway loops)
+- Max rounds per target is configurable via `max_rounds` in targets.md
 
 ### Phase 7: Generate Report
+
+**Before generating the report, update strategy history:**
+
+```bash
+mkdir -p .self-improve
+HISTORY=".self-improve/strategy-history.tsv"
+if [ ! -f "$HISTORY" ]; then
+  echo -e "date\trepo\ttarget\tstrategy\tresult\tdelta\tgoal_met\tmax_rounds_used" > "$HISTORY"
+fi
+echo -e "$(date +%Y-%m-%d)\t$(basename $(pwd))\t$TARGET\t$WINNER_STRATEGY\tqualified\t$DELTA\t$GOAL_MET\t$ROUNDS_USED" >> "$HISTORY"
+```
+
+**Read strategy history before Phase 4 to inform strategy selection:**
+
+```bash
+HISTORY=".self-improve/strategy-history.tsv"
+if [ -f "$HISTORY" ]; then
+  echo "=== Prior strategy performance for this target ==="
+  grep -E "\t$TARGET\t" "$HISTORY" | tail -5
+  echo "=== Strategies that worked ==="
+  grep -E "\tqualified\t" "$HISTORY" | awk -F'\t' '{print $4}' | sort | uniq -c | sort -rn | head -5
+fi
+```
+
+Pass these findings to the explorer spawn step so they bias toward proven strategies.
 
 ```markdown
 # Self-Improve Report -- [date]
@@ -277,6 +352,40 @@ Flow:
 2. Run Phase 1-6 for each target sequentially
 3. Consolidated report covering all targets
 4. One PR per target, or one combined PR
+
+## Scheduled / Nightly Mode
+
+To run self-improve on a schedule (e.g., every night at 2 AM):
+
+```
+/self-improve --schedule "0 2 * * *" shellcheck-issues
+/self-improve --schedule "0 3 * * *" test-speed --target-priority 2,3
+/self-improve --schedule "0 4 * * 0" all
+```
+
+**How nightly mode works:**
+
+1. The skill registers itself as a cron job with the specified schedule and targets
+2. Each run executes in a fresh session with no user present
+3. Results are delivered to the configured channel (Telegram, email, etc.) when complete
+4. If goal is met: branch is ready for human review in the morning
+5. If no improvement found or budget exhausted: report delivered, no changes made
+6. Strategy history accumulates across runs, improving future rounds
+
+**Nightly mode constraints:**
+
+- Runs MUST NOT modify `.github/**` (CI must remain stable)
+- If a run makes no progress for 2 consecutive nights on the same target → pause that target for 1 week
+- Max 1 target per night to avoid resource contention
+- Draft PRs are created automatically; never auto-merged without human review
+
+**Register a nightly schedule:**
+
+```
+/self-improve --register-nightly --target shellcheck-issues --schedule "0 2 * * *" --deliver telegram
+/self-improve --list-nightly          # show all registered schedules
+/self-improve --cancel-nightly <id>   # remove a scheduled run
+```
 
 ## Troubleshooting
 

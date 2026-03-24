@@ -22,6 +22,7 @@ scope:
   readonly: [files/dirs the agent MUST NOT touch]
 time_budget: <max seconds per explorer experiment>
 max_experiments: <total experiments across all explorers per round>
+max_rounds: <max tournament rounds (default: 3, harder targets may need more)>
 num_explorers: <how many parallel explorer agents to spawn>
 priority: <1-5, where 1 = highest>
 ```
@@ -41,7 +42,13 @@ direction: lower
 goal_strategy: percentage
 default_goal: "30% reduction"
 eval_command: |
-  { time bash -c "$TEST_CMD" ; } 2>&1 | grep real | awk '{print $2}' | sed 's/[ms]/ /g' | awk '{printf "%.2f", $1*60+$2}'
+  # Cross-platform timing: handles both GNU time (0m0.47s) and BSD time (0:00.47)
+  # Runs 3 times for timing stability, returns median in seconds
+  for i in 1 2 3; do
+    { time bash -c "$TEST_CMD" ; } 2>&1 | grep '^real' | sed 's/real[[:space:]]*//' | awk -v t="$i" '{printf "t%d %.2f\n", t, ($1 ~ /m/ ? substr($1,1,index($1,"m")-1)*60+substr($1,index($1,"m")+1): $1)*1 }' >> /tmp/test-speed-times.txt
+  done
+  awk '{times[NR]=$2} END{if(NR==3){mid=2}else if(NR==2){mid=2}else{mid=1}; asort(times); print times[mid]}' /tmp/test-speed-times.txt
+  rm -f /tmp/test-speed-times.txt
 test_gate: "$TEST_CMD"
 scope:
   mutable:
@@ -57,6 +64,7 @@ scope:
     - .env*
 time_budget: 600
 max_experiments: 20
+max_rounds: 3
 num_explorers: 4
 priority: 2
 ```
@@ -95,6 +103,7 @@ scope:
     - .github/**
 time_budget: 300
 max_experiments: 12
+max_rounds: 3
 num_explorers: 3
 priority: 3
 ```
@@ -117,7 +126,17 @@ direction: lower
 goal_strategy: percentage
 default_goal: "60% reduction"
 eval_command: |
-  $LINT_CMD 2>&1 | tail -1
+  # Robust lint counting — parses common linter output formats
+  # Tries ESLint compact → flake8 → generic stderr count
+  output=$($LINT_CMD 2>&1)
+  # Try ESLint compact format: "file:line:col: [Error/Warning] message (rule)"
+  count=$(echo "$output" | grep -cE '^\s*[^[:space:]]+\.[[:alnum:]]+:[0-9]+:[0-9]+: \[(Error|Warning)\]' || true)
+  if [ "$count" -gt 0 ]; then echo "$count"; return; fi
+  # Try flake8/pylint format: "file:line:col: message"
+  count=$(echo "$output" | grep -cE '^\s*[^[:space:]]+\.[[:alnum:]]+:[0-9]+:[0-9]+:' || true)
+  if [ "$count" -gt 0 ]; then echo "$count"; return; fi
+  # Fallback: count warning/error keywords
+  echo "$output" | grep -ciE '(warning|error|Error|Warning)' || echo 0
 scope:
   mutable:
     - src/**/*.ts
@@ -131,6 +150,7 @@ scope:
 test_gate: "$TEST_CMD"
 time_budget: 300
 max_experiments: 20
+max_rounds: 3
 num_explorers: 4
 priority: 2
 ```
@@ -167,6 +187,7 @@ scope:
     - .github/**
 time_budget: 300
 max_experiments: 12
+max_rounds: 3
 num_explorers: 3
 priority: 4
 ```
@@ -189,7 +210,18 @@ direction: higher
 goal_strategy: absolute
 default_goal: "> 80%"
 eval_command: |
-  $COVERAGE_CMD 2>&1 | grep -E 'Lines|TOTAL' | awk '{print $NF}' | tr -d '%'
+  # Parse coverage output from common formats
+  output=$($COVERAGE_CMD 2>&1)
+  # Try coverage-py JSON output: look for "percent_covered"
+  if echo "$output" | grep -q '"percent_covered"'; then
+    echo "$output" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('totals',{}).get('percent_covered','0'))" 2>/dev/null && return
+  fi
+  # Try Istanbul/coverage-badge JSON
+  if echo "$output" | grep -q '"line"'; then
+    echo "$output" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('line','0').replace('%',''))" 2>/dev/null && return
+  fi
+  # Try generic: "Lines......: XX%"
+  echo "$output" | grep -iE '(Lines|TOTAL|Coverage)' | grep -oE '[0-9]+\.[0-9]+%|[0-9]+%' | tail -1 | tr -d '%' || echo "0"
 test_gate: "$TEST_CMD"
 scope:
   mutable:
@@ -201,6 +233,7 @@ scope:
     - package.json
 time_budget: 600
 max_experiments: 20
+max_rounds: 5
 num_explorers: 4
 priority: 3
 ```
@@ -224,7 +257,9 @@ direction: lower
 goal_strategy: zero
 default_goal: "0 issues"
 eval_command: |
-  shellcheck .claude/hooks/*.sh claude/**/*.sh 2>&1 | grep -c '^In ' || echo 0
+  # Count shellcheck issues robustly — handles zero-findings case
+  # Uses exit code + count to handle both empty output and version differences
+  { shellcheck --format=gcc .claude/hooks/*.sh claude/**/*.sh 2>&1 || true; } | grep -c '^[^ ]*\.sh:[0-9]*:' || echo 0
 test_gate: "bash claude/tests/test-hooks.sh"
 scope:
   mutable:
@@ -234,6 +269,7 @@ scope:
     - .claude/settings.json
 time_budget: 120
 max_experiments: 10
+max_rounds: 2
 num_explorers: 2
 priority: 1
 ```
@@ -241,6 +277,135 @@ priority: 1
 **Suggested explorer strategies:**
 - Explorer A: Fix quoting, word-splitting, and globbing issues (SC2086, SC2046)
 - Explorer B: Modernize syntax (replace backticks, use `[[`, add `set -euo pipefail`)
+
+### 7. Dependency Staleness
+
+```yaml
+target: dependency-staleness
+purpose: >
+  Outdated dependencies are a security risk and a maintenance burden.
+  Fresh deps get security patches, performance improvements, and bug fixes.
+  Keeping deps current also reduces the blast radius when you eventually DO update.
+metric: count of outdated packages
+direction: lower
+goal_strategy: percentage
+default_goal: "50% reduction"
+eval_command: |
+  # Detect package manager and run outdated
+  if [ -f package.json ]; then
+    npm outdated --json 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d))" 2>/dev/null || echo 0
+  elif [ -f pyproject.toml ] || [ -f requirements.txt ]; then
+    pip list --outdated --format=freeze 2>/dev/null | grep -c '==' || echo 0
+  elif [ -f Cargo.toml ]; then
+    cargo outdated --json 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d))" 2>/dev/null || echo 0
+  else
+    echo 0
+  fi
+test_gate: "$TEST_CMD"
+scope:
+  mutable:
+    - package.json
+    - requirements*.txt
+    - pyproject.toml
+    - Cargo.toml
+  readonly:
+    - .github/**
+time_budget: 300
+max_experiments: 10
+max_rounds: 2
+num_explorers: 2
+priority: 3
+```
+
+**Suggested explorer strategies:**
+- Explorer A: Update minor/patch versions (low risk, security fixes)
+- Explorer B: Consolidate transitive dep conflicts and remove unused deps
+
+### 8. Cyclomatic Complexity
+
+```yaml
+target: cyclomatic-complexity
+purpose: >
+  High cyclomatic complexity means functions are hard to test, hard to reason about,
+  and prone to bugs. Limiting complexity forces good abstractions and makes code
+  more maintainable. High-complexity code is technical debt that compounds.
+metric: average cyclomatic complexity per function (or count of functions above threshold)
+direction: lower
+goal_strategy: percentage
+default_goal: "30% reduction in high-complexity functions"
+eval_command: |
+  # Detect language and run radon complexity
+  if [ -f pyproject.toml ] || [ -f setup.py ]; then
+    # Python — radon cc outputs: "filename:funcname:CC"
+    radon cc -a -c src/ 2>/dev/null | awk -F: '{sum+=$4; count++} END{if(count>0) printf "%.1f", sum/count; else print "0"}'
+  elif [ -f package.json ]; then
+    # JS/TS — use escomplex or plato (requires npm install -g)
+    echo "0"  # Requires escomplex installed
+  else
+    echo "0"
+  fi
+test_gate: "$TEST_CMD"
+scope:
+  mutable:
+    - src/**/*.{py,ts,js}
+  readonly:
+    - tests/**
+time_budget: 300
+max_experiments: 15
+max_rounds: 3
+num_explorers: 3
+priority: 3
+```
+
+**Suggested explorer strategies:**
+- Explorer A: Extract complex conditionals into named helper functions
+- Explorer B: Replace switch/case chains with strategy pattern or lookup tables
+- Explorer C: Break apart large functions (early returns, guard clauses)
+
+### 9. Test Flakiness
+
+```yaml
+target: test-flakiness
+purpose: >
+  Flaky tests erode CI trust and cause developers to ignore test failures.
+  When tests pass and fail unpredictably, real bugs slip through. Eliminating
+  flakiness restores CI as a reliable signal.
+metric: number of unique tests that fail in at least 1 out of 5 runs
+direction: lower
+goal_strategy: zero
+default_goal: "0 flaky tests"
+eval_command: |
+  # Run test suite 5 times, count unique failures
+  # Output: count of unique tests that failed at least once
+  failures=""
+  for i in 1 2 3 4 5; do
+    # Capture failed test names (pytest example)
+    if [ -n "$TEST_CMD" ]; then
+      $TEST_CMD 2>&1 | grep -oE 'FAILED [^[:space:]]+' | awk '{print $2}' >> /tmp/flaky-run-$i.txt
+    fi
+  done
+  cat /tmp/flaky-run-*.txt 2>/dev/null | sort -u | wc -l | tr -d ' '
+  rm -f /tmp/flaky-run-*.txt
+test_gate: "$TEST_CMD"
+scope:
+  mutable:
+    - tests/**/*
+    - src/**/*.test.*
+    - src/**/*.spec.*
+  readonly:
+    - src/**/*.ts
+    - src/**/*.py
+time_budget: 600
+max_experiments: 12
+max_rounds: 3
+num_explorers: 3
+priority: 2
+```
+
+**Suggested explorer strategies:**
+- Explorer A: Fix timing-dependent assertions (increase sleeps, use retry wrappers)
+- Explorer B: Isolate tests that share mutable state (reset singletons, mock time)
+- Explorer C: Add test isolation decorators/fixtures for shared resources
 
 ## Custom / Ad-Hoc Targets
 
@@ -261,6 +426,7 @@ scope:
   readonly: <everything else>
 time_budget: 300
 max_experiments: 15
+max_rounds: 3
 num_explorers: 3
 priority: 1
 ```

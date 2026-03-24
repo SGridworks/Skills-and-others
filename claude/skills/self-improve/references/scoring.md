@@ -44,22 +44,44 @@ Where:
 - `max_reasonable_lines` = 200 (changes beyond this are penalized steeply)
 - Fewer lines = higher score
 
-**Tertiary: Code Quality (weight: 10%)**
+**Tertiary: Code Quality (weight: 10%) -- Deterministic**
 
-Assessed by the evaluator agent reviewing the diff:
+Quality is assessed by the evaluator reviewing the diff objectively. Score is computed:
 
-| Score | Meaning |
-|-------|---------|
-| 5 | Excellent -- clean, idiomatic, well-structured |
-| 4 | Good -- minor style issues only |
-| 3 | Acceptable -- gets the job done |
-| 2 | Poor -- hacky, but functional |
-| 1 | Bad -- debug artifacts, commented code, unclear intent |
+```
+quality_score = 5  # base (starts at maximum)
+
+# Deduct for bad patterns found in diff:
+if has_commented_out_code:         quality_score -= 1
+if has_debug_prints:               quality_score -= 1
+if has_incomplete_error_handling: quality_score -= 1
+if has_magic_numbers:             quality_score -= 0.5
+if introduces_naming_inconsistency: quality_score -= 0.5
+
+# Add for good patterns:
+if has_proper_naming:             quality_score += 0.5
+if has_appropriate_abstractions:  quality_score += 0.5
+
+quality_score = max(1, min(5, quality_score))  # clamp to [1, 5]
+```
+
+Checked via:
+```bash
+# commented out code: lines starting with // or # that look disabled
+git diff main..HEAD | grep -cE '^[+-].*//\s*(TODO|FIXME|HACK|XXX)|^[+-].*#\s*(TODO|FIXME|HACK|XXX)'
+# debug prints: console.log, print(, logger.
+git diff main..HEAD | grep -cE 'console\.(log|debug)|print\s*\(|logger\.(debug|info)\('
+# incomplete error handling: empty catch or except
+git diff main..HEAD | grep -cE 'catch\s*\([^)]*\)\s*\{\s*\}|except\s*\([^)]*\)\s*:\s*pass'
+# magic numbers: numbers not in strings or comments
+git diff main..HEAD | grep -cE '[^["\'a-zA-Z_]]\d{3,}[^["\'a-zA-Z_]]'  # 3+ digit literals
+```
 
 **Composite score:**
 ```
-total = (improvement_score * 0.7) + (simplicity_score * 0.2) + (quality_score * 20 * 0.1)
+total = (improvement_score * 0.7) + (simplicity_score * 0.2) + (quality_score * 2)
 ```
+Where quality_score is 1-5, so quality contributes 2-10 points to the total (equivalent to ~10% weight at scale).
 
 ### 3. Ranking and Tiebreaking
 
@@ -99,8 +121,24 @@ For metrics with natural variance (timing, performance):
 
 - The evaluator runs eval_command 3 times per candidate
 - Uses the **median** value
-- Two candidates within **2% of baseline** of each other are considered tied
-- The noise floor is calculated as: `noise = baseline * 0.02`
+- Two candidates within the noise floor of each other are considered tied
+
+**Tiered noise floor by metric magnitude:**
+
+```
+baseline < 20  units → noise = 10% of baseline  (sensitive at small scale)
+baseline 20-200 units → noise = 5% of baseline   (moderate sensitivity)
+baseline > 200 units → noise = 2% of baseline    (meaningful at scale)
+```
+
+- Timing metrics always use 5% noise floor minimum (inherent variance)
+- Count metrics (warnings, issues) use the tiered formula above
+- Two candidates within noise floor: simplicity tiebreaker applies
+
+**Simplification credit:** If a candidate achieves >50% of the goal delta AND
+is significantly simpler than the top metric scorer (>=30% fewer lines changed),
+it gains a +5 simplification credit bonus to its total score. This rewards clean
+solutions that were almost as effective as complex ones.
 
 ## Goal Progress
 

@@ -26,7 +26,9 @@ You receive:
 - `EVAL_CMD` -- The command to measure the metric
 - `TEST_CMD` -- The full test suite command (not just the test gate)
 - `SCOPE` -- The allowed mutable file paths
-- `CANDIDATES` -- List of candidate branches/worktrees with their self-reported metrics
+- `CANDIDATES` -- Table of candidates: each row has (candidate_id, worktree_path, strategy, self_reported_metric)
+- `IMPROVEMENT_BRANCH` -- The branch name where winner's commits will be cherry-picked
+- `BASE_BRANCH` -- The branch explorers diff against (the clean starting point, NOT main)
 
 ## Evaluation Process
 
@@ -36,8 +38,8 @@ For each candidate, in its worktree:
 
 **a. Scope check:**
 ```bash
-# Get the diff against the base branch
-git diff main..HEAD --name-only
+cd /path/to/worktree
+git diff $BASE_BRANCH..HEAD --name-only
 ```
 - Verify every changed file is within SCOPE.mutable
 - If any file is out of scope → DISQUALIFIED (reason: "out-of-scope changes")
@@ -61,8 +63,9 @@ echo "verified_metric:$METRIC"
 
 **d. Diff quality review:**
 ```bash
-git diff main..HEAD --stat
-git diff main..HEAD
+cd /path/to/worktree
+git diff $BASE_BRANCH..HEAD --stat
+git diff $BASE_BRANCH..HEAD
 ```
 - Review the actual changes for:
   - Code quality (no hacks, no debug artifacts, no commented-out code)
