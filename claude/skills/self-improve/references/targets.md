@@ -409,6 +409,128 @@ priority: 2
 - Explorer B: Isolate tests that share mutable state (reset singletons, mock time)
 - Explorer C: Add test isolation decorators/fixtures for shared resources
 
+### 10. Skill Quality
+
+```yaml
+target: skill-quality
+purpose: >
+  Skills that fail, time out, or produce broken outputs waste developer time
+  and erode trust in automation. Improving skill quality means fewer failed runs,
+  more reliable tool synthesis, and faster recovery when something breaks.
+metric: count of skills that fail to load or produce errors in a test run
+direction: lower
+goal_strategy: zero
+default_goal: "0 quality failures"
+eval_command: |
+  # Validate skill YAML frontmatter using Python
+  python3 - << 'EOF'
+  import sys, re
+  from pathlib import Path
+  failures = 0
+  skills_dir = Path.home() / ".hermes" / "skills"
+  for skill_md in sorted(skills_dir.glob("*/SKILL.md")):
+    name = skill_md.parent.name
+    try:
+      content = skill_md.read_text()
+      # Extract YAML frontmatter
+      match = re.match(r'^---\n(.*?)\n---', content, re.DOTALL)
+      if not match:
+        print(f"FAIL: {name} — no YAML frontmatter")
+        failures += 1
+        continue
+      import yaml
+      data = yaml.safe_load(match.group(1))
+      # Check required fields
+      for field in ('name', 'description'):
+        if not data.get(field):
+          print(f"FAIL: {name} — missing '{field}'")
+          failures += 1
+    except Exception as e:
+      print(f"FAIL: {name} — {e}")
+      failures += 1
+  print(failures)
+  EOF
+test_gate: "true"
+scope:
+  mutable:
+    - ~/.hermes/skills/**/*.{md,yaml,yml}
+    - ~/.hermes/agents/*.md
+  readonly:
+    - ~/.hermes/skills/theologian/**
+    - ~/.hermes/skills/nightly-self-evolution/**
+time_budget: 300
+max_experiments: 15
+max_rounds: 3
+num_explorers: 3
+priority: 2
+```
+
+**Suggested explorer strategies:**
+- Explorer A: Fix malformed YAML frontmatter in SKILL.md files
+- Explorer B: Add missing required fields (name, description)
+- Explorer C: Repair broken references/links in skill documentation
+
+### 11. Model Latency
+
+```yaml
+target: model-latency
+purpose: >
+  Every millisecond of inference latency compounds across thousands of agent
+  turns per night. Faster models mean more agent throughput and lower API costs.
+  Even 10% improvement in latency is significant at scale.
+metric: median inference latency in milliseconds per response
+direction: lower
+goal_strategy: percentage
+default_goal: "15% reduction in median latency"
+eval_command: |
+  # Measure median latency across 10 test prompts using current primary model
+  # Run through hermes-agent inference endpoint
+  python3 -c "
+import subprocess, time, statistics
+prompts = [
+  'What is 2+2?',
+  'Count from 1 to 5.',
+  'Say hello.',
+  'What color is the sky?',
+  'What time is it?',
+  'Count letters in ABC.',
+  'What is your name?',
+  'What is 7x8?',
+  'What comes after Monday?',
+  'What is the third month?'
+]
+latencies = []
+for p in prompts:
+  start = time.time()
+  result = subprocess.run(
+    ['hermes', 'chat', '-q', p, '--quiet', '-Q'],
+    capture_output=True, text=True, timeout=30,
+    cwd='/Users/2agents/hermes-agent'
+  )
+  latency = (time.time() - start) * 1000
+  latencies.append(latency)
+print(statistics.median(latencies))
+" 2>/dev/null || echo "0"
+test_gate: "true"
+scope:
+  mutable:
+    - ~/.hermes/config.yaml
+    - ~/.hermes/model_router.yaml
+    - /Users/2agents/hermes-agent/agent/model_metadata.py
+  readonly:
+    - /Users/2agents/hermes-agent/agent/anthropic_adapter.py
+time_budget: 300
+max_experiments: 10
+max_rounds: 3
+num_explorers: 2
+priority: 3
+```
+
+**Suggested explorer strategies:**
+- Explorer A: Switch to faster model provider for simple tasks (Gemma3 for non-coding)
+- Explorer B: Enable speculative decoding / caching headers
+- Explorer C: Reduce max_tokens where safe to do so
+
 ## Custom / Ad-Hoc Targets
 
 When the user provides a free-form purpose instead of a target ID, the skill
