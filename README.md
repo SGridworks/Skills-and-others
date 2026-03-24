@@ -17,8 +17,8 @@ claude/install.sh --target cursor typescript
 
 ```
 claude/                  # Claude Code configuration
-  skills/                # 7 workflow skills (theologian, code-review, tdd, plan, verify, build-fix, learning)
-  agents/                # 5 subagent definitions
+  skills/                # 20 workflow skills (optimized via autoresearch)
+  agents/                # 9 subagent definitions
   rules/                 # Coding guidelines (common + typescript, python, golang)
   contexts/              # Dynamic system prompt modes (dev, review, research)
   examples/              # Example CLAUDE.md templates
@@ -26,25 +26,67 @@ claude/                  # Claude Code configuration
   memory-persistence/    # Session state save/load scripts
   tests/                 # Validation test suite
   install.sh             # Configuration installer
-openclaw/                # OpenClaw 14-agent system configuration (future)
+hermes/                  # Hermes Agent Platform skills
+  skills/                # 17 optimized Hermes skills
 .claude/                 # Active hooks and settings
-  hooks/                 # Lifecycle hook scripts (4 hooks)
+  hooks/                 # Lifecycle hook scripts
   settings.json          # Hook registration
 ```
 
 ## Claude Code Skills
 
-All skills have frontmatter with `allowed-tools`, `model`, and `user-invocable` fields.
+All skills optimized via the `/autoresearch` loop (Karpathy's autoresearch method adapted for prompt optimization). Each skill was baseline-scored against test prompts, then iteratively improved until 100% pass rate on binary eval criteria.
 
-| Skill | Model | Purpose |
-|-------|-------|---------|
-| [`/theologian`](claude/skills/theologian/) | inherit | Reformed theological research agent with 4 MCP servers, 2M+ records |
-| `/code-review` | sonnet | Structured review with severity-ranked findings |
-| `/tdd` | inherit | Test-driven development workflow |
-| `/plan` | sonnet | Phased implementation planning |
-| `/verify` | haiku | Run tests, lint, typecheck, build |
-| `/build-fix` | inherit | Diagnose and fix build errors |
-| `/learn` | sonnet | Extract reusable patterns from sessions |
+### Core Skills (custom, optimized)
+
+| Skill | Purpose |
+|-------|---------|
+| [`/autoresearch`](claude/skills/autoresearch/) | Iterative skill improvement loop -- the meta-skill that optimized everything else |
+| [`/theologian`](claude/skills/theologian/) | Reformed theological research agent with 4 MCP servers, 2M+ records |
+| [`/google-workspace`](claude/skills/google-workspace/) | Gmail, Calendar, Drive access with REST API fallback |
+| [`/notion-sync`](claude/skills/notion-sync/) | Sync project state to Notion Command Center with JSON payloads |
+| [`/cluster-debug`](claude/skills/cluster-debug/) | Cluster diagnosis with symptom routing, quick fixes, and verify |
+| [`/cluster-ops`](claude/skills/cluster-ops/) | Routine cluster maintenance (health, Ollama, LaunchAgents, costs) |
+| [`/btm-equipment-models`](claude/skills/btm-equipment-models/) | BTM-Optimize equipment reference with construction examples + validation rules |
+| [`/spl-data`](claude/skills/spl-data/) | SP&L data analysis with runnable patterns and filter-first for large datasets |
+| [`/dnm-new-dataset`](claude/skills/dnm-new-dataset/) | DNM dataset scaffolding with inline templates and FK debugging |
+| [`/careful`](claude/skills/careful/) | Destructive operation guardrails (rm -rf, force push, DROP TABLE) |
+| [`/freeze`](claude/skills/freeze/) | Directory-scoped edit restrictions |
+
+### Workflow Skills (general purpose)
+
+| Skill | Purpose |
+|-------|---------|
+| `/code-review` | Structured review with severity-ranked findings |
+| `/tdd` | Test-driven development workflow |
+| `/plan` | Phased implementation planning |
+| `/verify` | Run tests, lint, typecheck, build |
+| `/build-fix` | Diagnose and fix build errors |
+| `/self-improve` | Autonomous nightly improvement with tournament selection |
+| `/data-science` | Data exploration and analysis |
+| `/powerflow` | Power flow analysis and grid modeling |
+| `/continuous-learning` | Extract reusable patterns from sessions |
+
+## Hermes Agent Skills
+
+Optimized skills for the Hermes agent platform (mini1+mini2 cluster).
+
+| Skill | Purpose |
+|-------|---------|
+| `autoresearch` | Autonomous skill optimization via experiment loop |
+| `auto-optimize` | Karpathy-style tune loop for any measurable metric |
+| `btm-optimize-validate` | Regression checklist with inlined detection + fix patterns |
+| `btm-optimize-tune` | Tariff config auto-tuning with error handling |
+| `btm-optimize-validator` | Simulation result validation (energy balance, constraints) |
+| `project-reporter` | Weekly status generator with git auto-pull + SGW voice |
+| `dnm-data-expert` | DNM dataset context with SQL + pandas patterns |
+| `dnm-release-pipeline` | 4-gate release workflow with runnable commands |
+| `dnm-scenario-planner` | Merge freeze management with auto-lift and CI/CD |
+| `nightly-self-evolution` | Overnight Reflexion loop with gemma3:12b + revert strategy |
+| `gateway-restart-verification` | Post-restart Telegram/Discord verification |
+| `feature-scoper` | Structured requirements interview before building |
+| `research-orchestrator` | Publication-quality research with manual checkpoints |
+| `infrastructure/google-oauth-refresh` | Google OAuth token refresh bypassing library bug |
 
 ## Claude Code Agents
 

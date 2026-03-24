@@ -6,7 +6,7 @@ Multi-platform AI configuration system. Separates Claude Code and OpenClaw conte
 
 This repository is a modular configuration system for two AI platforms:
 - **Claude Code** (`claude/`) -- Skills, agents, rules, hooks, contexts, examples
-- **OpenClaw** (`openclaw/`) -- Agent definitions and configs for the 14-agent system
+- **Hermes** (`hermes/`) -- Skills for the Hermes agent platform (mini1+mini2 cluster)
 
 ## Architecture
 
@@ -22,10 +22,8 @@ claude/                          # Claude Code configuration
   memory-persistence/            # Session state save/load scripts
   tests/                         # Validation test suite
   install.sh                     # Configuration installer
-openclaw/                        # OpenClaw configuration (future)
-  agents/                        # OpenClaw agent definitions
-  skills/                        # OpenClaw workflows
-  configs/                       # OpenClaw configuration templates
+hermes/                          # Hermes Agent Platform
+  skills/<name>/SKILL.md         # Hermes workflow skills
 .claude/                         # Active hooks and settings
   hooks/                         # Lifecycle hook scripts
   settings.json                  # Hook registration
@@ -41,7 +39,8 @@ openclaw/                        # OpenClaw configuration (future)
 - Keep files under 400 lines; split if larger
 - No hardcoded secrets or credentials anywhere
 - Use conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`
-- Claude Code content goes in `claude/`, OpenClaw content goes in `openclaw/`
+- Claude Code content goes in `claude/`, Hermes content goes in `hermes/`
+- All skills were optimized via the autoresearch loop (baseline -> eval -> iterate -> 100%)
 
 ## Testing
 
