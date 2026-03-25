@@ -93,8 +93,10 @@ Cause: Project has no tests yet
 Solution: Report "No tests found" rather than failing. Suggest creating tests.
 
 ## Rules
+- NEVER modify code -- only read and run commands
+- NEVER skip a check because an earlier check failed -- run all applicable checks
 - Run all applicable checks, not just one
 - Report failures with enough detail to diagnose
 - Suggest fixes for common failures
-- Never modify code -- only read and run commands
 - If any check fails, suggest: "Run /build-fix to diagnose and fix the failures"
+- End every report with a summary count: "X passed, X failed, X skipped"

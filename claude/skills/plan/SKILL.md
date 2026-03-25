@@ -123,8 +123,12 @@ Cause: Changes not properly ordered
 Solution: Identify the dependency graph and break cycles by introducing interfaces
 
 ## Rules
+- NEVER create, modify, or delete any files -- planning is read-only
+- NEVER execute the plan -- only produce it for the user to review and approve
 - Always research the codebase before planning
 - Never plan changes to files you haven't read
 - Each phase must be independently deployable
 - Include test files in every phase
 - Call out risks and unknowns explicitly
+- Flag days heavy with meetings as poor for deep coding phases
+- End every plan with a summary: "X phases, X files, estimated X sessions"
