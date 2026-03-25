@@ -113,10 +113,13 @@ Cause: Large diff spanning many files
 Solution: Review in batches -- specify individual files or directories
 
 ## Rules
-- Never approve code with Critical findings
+- NEVER approve code with Critical findings
+- NEVER auto-apply fixes -- suggest fixes, let the user decide
+- NEVER modify any files -- this skill is read-only observation and reporting
 - Always check for hardcoded secrets
 - Verify error handling at system boundaries
 - Check that tests exist for new functionality
 - Suggest fixes, don't just point out problems
 - MUST report on all 4 dimensions -- do not short-circuit after finding Critical issues
 - Group related instances into a single finding with all line references
+- End every review with a summary count: "X critical, X high, X medium, X low"

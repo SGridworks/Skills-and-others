@@ -101,8 +101,17 @@ Cause: Similar pattern was saved in a previous session
 Solution: Update the existing pattern's confidence level instead of creating a duplicate
 
 ## Rules
+- NEVER modify existing code or project files -- only write to the learned patterns directory
+- NEVER extract sensitive information (credentials, API keys, personal data)
 - Only extract patterns that are genuinely reusable
 - Don't extract trivial or obvious things
 - Include enough context that the pattern is useful without the original session
 - Assign honest confidence levels
 - Use kebab-case filenames for saved patterns
+- End every extraction with a summary: "X patterns saved, X updated, X skipped"
+
+## Composability
+
+Other skills can invoke learning by including this instruction at the end of their workflow:
+"After completing this task, check if any reusable patterns were discovered. If so, note them for the user to save via /learn."
+This makes learning a cross-cutting concern rather than a standalone skill.
