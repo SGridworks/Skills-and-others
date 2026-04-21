@@ -52,7 +52,7 @@ npm run typecheck # type checking only
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `model` | string | `qwen2.5:14b` | Model for this agent |
+| `model` | string | `MiniMax-M2.7-highspeed` | Model for this agent |
 | `provider` | string | `auto` | Inference provider |
 | `cwd` | string | `.` | Working directory (use absolute path) |
 | `hermesCommand` | string | `hermes` | Path to hermes CLI |

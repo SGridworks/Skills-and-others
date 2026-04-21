@@ -76,17 +76,20 @@ compression:
 
 auxiliary:
   # Vision model for image analysis
+  # Use your inference provider's vision model
+  # Examples: MiniMax's VL model, OpenAI's gpt-4o, Anthropic's Claude with vision
   vision:
-    provider: custom
-    model: qwen3-vl:235b-instruct
-    base_url: https://ollama.com/v1
+    provider: minimax
+    model: MiniMax-M2.7-highspeed
+    base_url: ''
     api_key: ''
     timeout: 30
 
   # Compression model for context management
+  # Uses provider auto-detection when model/base_url are empty
   compression:
-    provider: custom
-    model: qwen2.5:14b
+    provider: minimax
+    model: ''
     base_url: ''
     api_key: ''
     timeout: 120

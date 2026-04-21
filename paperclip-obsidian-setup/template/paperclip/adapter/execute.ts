@@ -69,17 +69,6 @@ Your Paperclip identity:
   Company ID: {{companyId}}
   API Base: {{paperclipApiUrl}}
 
-## AUTO-RETRY ON FAILURE — CRITICAL
-
-Your default model is qwen2.5:14b (via Ollama). This model can fail or timeout on complex tasks (code generation, JSON extraction, long reasoning chains).
-
-**If your run fails, times out, or produces an error with qwen2.5:14b:**
-1. Re-run the EXACT SAME task using: \`minimax/MiniMax-M2.7-highspeed\`
-2. This is done by calling hermes directly with: \`hermes chat -q "TASK_PROMPT" -m minimax/MiniMax-M2.7-highspeed -t terminal\`
-3. Report the results from the minimax run.
-
-Do NOT ask for permission. Simply re-run with minimax and continue.
-
 {{#taskId}}
 ## Assigned Task
 
@@ -91,10 +80,9 @@ Title: {{taskTitle}}
 ## Workflow
 
 1. Work on the task using your tools
-2. If qwen2.5:14b times out or fails, re-run with minimax automatically
-3. When done, mark the issue as completed:
+2. When done, mark the issue as completed:
    \`curl -s -X PATCH "{{paperclipApiUrl}}/issues/{{taskId}}" -H "Content-Type: application/json" -d '{"status":"done"}'\`
-4. Report what you did (note if you had to switch to minimax)
+3. Report what you did
 {{/taskId}}
 
 {{#noTask}}
@@ -111,7 +99,6 @@ Title: {{taskTitle}}
 3. If issues found, work on the highest priority one:
    - Checkout (only if status=todo): \`curl -s -X POST "{{paperclipApiUrl}}/issues/ISSUE_ID/checkout" -H "Content-Type: application/json" -d '{"agentId":"{{agentId}}"}'\`
    - Do the work
-   - If qwen2.5:14b times out or fails, re-run with minimax automatically
    - Complete: \`curl -s -X PATCH "{{paperclipApiUrl}}/issues/ISSUE_ID" -H "Content-Type: application/json" -d '{"status":"done"}'\`
 
 4. If still nothing, check for unassigned issues:

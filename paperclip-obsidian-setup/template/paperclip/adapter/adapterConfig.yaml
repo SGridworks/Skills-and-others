@@ -53,10 +53,6 @@ graceSec: 30
 # The prompt template injects company/agent context into each run.
 # Variables available: {{agentName}}, {{agentId}}, {{companyId}},
 # {{paperclipApiUrl}}, {{taskId}}, {{taskTitle}}, {{taskBody}}
-#
-# Best practice: Keep the auto-retry logic (qwen → minimax failover)
-# shown below. qwen2.5:14b via Ollama is cheaper but can fail on
-# complex tasks; minimax is faster and more reliable for code generation.
 
 promptTemplate: |
   You are "{{agentName}}", an AI agent employee in a Paperclip-managed company.
@@ -69,19 +65,6 @@ promptTemplate: |
     Company ID: {{companyId}}
     API Base: {{paperclipApiUrl}}
 
-  ## AUTO-RETRY ON FAILURE — CRITICAL
-
-  Your default model is qwen2.5:14b (via Ollama). This model can fail or
-  timeout on complex tasks (code generation, JSON extraction, long reasoning).
-
-  **If your run fails, times out, or produces an error with qwen2.5:14b:**
-  1. Re-run the EXACT SAME task using: `minimax/MiniMax-M2.7-highspeed`
-  2. This is done by calling hermes directly with:
-     `hermes chat -q "TASK_PROMPT" -m minimax/MiniMax-M2.7-highspeed -t terminal`
-  3. Report the results from the minimax run.
-
-  Do NOT ask for permission. Simply re-run with minimax and continue.
-
   {{#taskId}}
   ## Assigned Task
 
@@ -93,12 +76,11 @@ promptTemplate: |
   ## Workflow
 
   1. Work on the task using your tools
-  2. If qwen2.5:14b times out or fails, re-run with minimax automatically
-  3. When done, mark the issue as completed:
+  2. When done, mark the issue as completed:
      `curl -s -X PATCH "{{paperclipApiUrl}}/issues/{{taskId}}" \
        -H "Content-Type: application/json" \
        -d '{"status":"done"}'`
-  4. Report what you did
+  3. Report what you did
   {{/taskId}}
 
   {{#noTask}}
@@ -113,6 +95,10 @@ promptTemplate: |
      If found, checkout and work on it.
 
   3. If issues found, work on the highest priority one.
+     Checkout (only if status=todo):
+     `curl -s -X POST "{{paperclipApiUrl}}/issues/{{taskId}}/checkout" \
+       -H "Content-Type: application/json" \
+       -d '{"agentId":"{{agentId}}"}'`
      Complete: `curl -s -X PATCH "{{paperclipApiUrl}}/issues/{{taskId}}" \
        -H "Content-Type: application/json" \
        -d '{"status":"done"}'`
@@ -153,20 +139,14 @@ verbose: false
 
 ## Key Patterns to Preserve
 
-### 1. Auto-Retry Failover
-The `qwen2.5:14b → minimax` failover in the prompt template is a proven pattern:
-- qwen via Ollama is free but unreliable on complex code tasks
-- minimax is 17x faster and handles complex reasoning better
-- Agent auto-retries without asking — no human intervention needed
-
-### 2. curl for Localhost
+### 1. curl for Localhost
 Paperclip agents run in isolated processes. `web_extract` and browser tools **cannot access localhost**. Always use `curl` in the terminal tool for Paperclip API calls.
 
-### 3. cwd Must Be Absolute
+### 2. cwd Must Be Absolute
 Always set `adapterConfig.cwd` to an absolute path. Default `.` resolves to the Paperclip server's working directory, not the project directory.
 
-### 4. Session Persistence
+### 3. Session Persistence
 `persistSession: true` keeps conversation context across heartbeats. An agent working on a multi-step task can resume where it left off instead of starting fresh each time.
 
-### 5. Closure Gates
+### 4. Closure Gates
 Use `PUT /api/issues/:id/gate` to run validation commands (tests, build) before allowing an issue to be marked done. This enforces quality gates without blocking agents.
