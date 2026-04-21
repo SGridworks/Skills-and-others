@@ -1,0 +1,172 @@
+# Paperclip Adapter Configuration Template
+
+Copy this directory into your adapter project and customize the values.
+
+## File Structure
+
+```
+adapter/
+├── execute.ts          # Sanitized execution logic (reference)
+├── AGENTS.md           # Development guide
+└── adapterConfig.yaml  # Your adapter config (fill in YOUR values)
+```
+
+---
+
+## adapterConfig.yaml
+
+```yaml
+# Paperclip Agent Adapter Configuration
+# Attach this config to each Paperclip agent you create
+
+# ── Core Settings ────────────────────────────────────────────────────────────
+
+# Model for this agent (must match a model your inference provider supports)
+model: MiniMax-M2.7-highspeed
+
+# Provider (auto, minimax, openai, anthropic, etc.)
+provider: minimax
+
+# Working directory for agent tasks
+# macOS/Linux: /Users/yourname/project
+# Windows (WSL): /home/youruser/project
+# Windows (native): C:\path\to\project
+cwd: /path/to/your/project
+
+# Path to hermes CLI binary
+# macOS/Linux: /Users/yourname/hermes-agent/.venv/bin/hermes
+# Windows (WSL): /home/youruser/hermes-agent/.venv/bin/hermes
+hermesCommand: /path/to/hermes-agent/.venv/bin/hermes
+
+# ── Execution Limits ────────────────────────────────────────────────────────
+
+# Max conversation turns per execution run
+maxTurnsPerRun: 120
+
+# Timeout for entire execution (seconds)
+timeoutSec: 300
+
+# Grace period after timeout before killing process (seconds)
+graceSec: 30
+
+# ── Prompt Template ─────────────────────────────────────────────────────────
+# The prompt template injects company/agent context into each run.
+# Variables available: {{agentName}}, {{agentId}}, {{companyId}},
+# {{paperclipApiUrl}}, {{taskId}}, {{taskTitle}}, {{taskBody}}
+#
+# Best practice: Keep the auto-retry logic (qwen → minimax failover)
+# shown below. qwen2.5:14b via Ollama is cheaper but can fail on
+# complex tasks; minimax is faster and more reliable for code generation.
+
+promptTemplate: |
+  You are "{{agentName}}", an AI agent employee in a Paperclip-managed company.
+
+  IMPORTANT: Use `terminal` tool with `curl` for ALL Paperclip API calls
+  (web_extract and browser cannot access localhost).
+
+  Your Paperclip identity:
+    Agent ID: {{agentId}}
+    Company ID: {{companyId}}
+    API Base: {{paperclipApiUrl}}
+
+  ## AUTO-RETRY ON FAILURE — CRITICAL
+
+  Your default model is qwen2.5:14b (via Ollama). This model can fail or
+  timeout on complex tasks (code generation, JSON extraction, long reasoning).
+
+  **If your run fails, times out, or produces an error with qwen2.5:14b:**
+  1. Re-run the EXACT SAME task using: `minimax/MiniMax-M2.7-highspeed`
+  2. This is done by calling hermes directly with:
+     `hermes chat -q "TASK_PROMPT" -m minimax/MiniMax-M2.7-highspeed -t terminal`
+  3. Report the results from the minimax run.
+
+  Do NOT ask for permission. Simply re-run with minimax and continue.
+
+  {{#taskId}}
+  ## Assigned Task
+
+  Issue ID: {{taskId}}
+  Title: {{taskTitle}}
+
+  {{taskBody}}
+
+  ## Workflow
+
+  1. Work on the task using your tools
+  2. If qwen2.5:14b times out or fails, re-run with minimax automatically
+  3. When done, mark the issue as completed:
+     `curl -s -X PATCH "{{paperclipApiUrl}}/issues/{{taskId}}" \
+       -H "Content-Type: application/json" \
+       -d '{"status":"done"}'`
+  4. Report what you did
+  {{/taskId}}
+
+  {{#noTask}}
+  ## Heartbeat Wake — Check for Work
+
+  1. FIRST: Resume any in-progress issues assigned to you:
+     `curl -s "{{paperclipApiUrl}}/companies/{{companyId}}/issues?assigneeAgentId={{agentId}}&status=in_progress" | python3 -m json.tool`
+     If found, continue working (do NOT checkout again).
+
+  2. If no in-progress issues, check for new todo issues:
+     `curl -s "{{paperclipApiUrl}}/companies/{{companyId}}/issues?assigneeAgentId={{agentId}}&status=todo" | python3 -m json.tool`
+     If found, checkout and work on it.
+
+  3. If issues found, work on the highest priority one.
+     Complete: `curl -s -X PATCH "{{paperclipApiUrl}}/issues/{{taskId}}" \
+       -H "Content-Type: application/json" \
+       -d '{"status":"done"}'`
+
+  4. If still nothing, check for unassigned backlog issues:
+     `curl -s "{{paperclipApiUrl}}/companies/{{companyId}}/issues?status=backlog" | python3 -m json.tool`
+
+  5. If truly nothing to do, report briefly.
+  {{/noTask}}
+
+# ── Session Persistence ──────────────────────────────────────────────────────
+# Keep conversation context across agent heartbeats (recommended: true)
+persistSession: true
+
+# ── Advanced ─────────────────────────────────────────────────────────────────
+
+# Enable filesystem checkpoints for crash recovery
+checkpoints: false
+
+# Enable verbose output (useful for debugging)
+verbose: false
+
+# Extra CLI args passed to hermes chat (optional)
+# extraArgs:
+#   - --debug
+#   - --trace
+
+# Environment variables injected into the agent process (optional)
+# env:
+#   MY_API_KEY: your-api-key
+
+# Paperclip API URL (default: http://127.0.0.1:3100/api)
+# For WSL: use the Windows host IP, not localhost
+# paperclipApiUrl: http://127.0.0.1:3100/api
+```
+
+---
+
+## Key Patterns to Preserve
+
+### 1. Auto-Retry Failover
+The `qwen2.5:14b → minimax` failover in the prompt template is a proven pattern:
+- qwen via Ollama is free but unreliable on complex code tasks
+- minimax is 17x faster and handles complex reasoning better
+- Agent auto-retries without asking — no human intervention needed
+
+### 2. curl for Localhost
+Paperclip agents run in isolated processes. `web_extract` and browser tools **cannot access localhost**. Always use `curl` in the terminal tool for Paperclip API calls.
+
+### 3. cwd Must Be Absolute
+Always set `adapterConfig.cwd` to an absolute path. Default `.` resolves to the Paperclip server's working directory, not the project directory.
+
+### 4. Session Persistence
+`persistSession: true` keeps conversation context across heartbeats. An agent working on a multi-step task can resume where it left off instead of starting fresh each time.
+
+### 5. Closure Gates
+Use `PUT /api/issues/:id/gate` to run validation commands (tests, build) before allowing an issue to be marked done. This enforces quality gates without blocking agents.

@@ -1,0 +1,252 @@
+# Hermes Agent Configuration Example
+# Copy to ~/.hermes/config.yaml and fill in YOUR values
+# DO NOT commit this file with real credentials
+
+model:
+  default: MiniMax-M2.7-highspeed    # Your default inference provider
+  provider: minimax                  # e.g. minimax, openai, anthropic, etc.
+
+providers:
+  # Example: add your inference providers here
+  # Each provider needs: api (base URL), name, api_key
+  #
+  # openrouter:
+  #   api: https://openrouter.ai/v1
+  #   name: openrouter
+  #   api_key: YOUR_OPENROUTER_API_KEY
+  #
+  # ollama-local:
+  #   api: http://127.0.0.1:11434/v1
+  #   name: ollama-local
+  #   transport: chat_completions
+
+fallback_providers: []
+credential_pool_strategies: {}
+
+toolsets:
+  - all
+
+agent:
+  max_turns: 60
+  gateway_timeout: 1800
+  restart_drain_timeout: 60
+  tool_use_enforcement: auto
+  gateway_timeout_warning: 900
+  gateway_notify_interval: 600
+  reasoning_effort: xhigh
+  verbose: false
+
+terminal:
+  backend: local
+  modal_mode: auto
+  timeout: 180
+  env_passthrough: []
+  # Docker for cross-platform compatibility:
+  # docker_image: nikolaik/python-nodejs:python3.11-nodejs20
+  # docker_forward_env: []
+  # docker_env: {}
+  # singularity_image: docker://nikolaik/python-nodejs:python3.11-nodejs20
+  # modal_image: nikolaik/python-nodejs:python3.11-nodejs20
+  container_cpu: 1
+  container_memory: 5120
+  container_disk: 51200
+  container_persistent: true
+  docker_volumes: []
+  docker_mount_cwd_to_workspace: false
+  persistent_shell: true
+  lifetime_seconds: 300
+
+browser:
+  inactivity_timeout: 120
+  command_timeout: 30
+  record_sessions: false
+  allow_private_urls: false
+
+checkpoints:
+  enabled: false
+  max_snapshots: 50
+
+file_read_max_chars: 100000
+
+compression:
+  enabled: true
+  threshold: 0.5
+  target_ratio: 0.2
+  protect_last_n: 20
+
+auxiliary:
+  # Vision model for image analysis
+  vision:
+    provider: custom
+    model: qwen3-vl:235b-instruct
+    base_url: https://ollama.com/v1
+    api_key: ''
+    timeout: 30
+
+  # Compression model for context management
+  compression:
+    provider: custom
+    model: qwen2.5:14b
+    base_url: ''
+    api_key: ''
+    timeout: 120
+
+display:
+  compact: false
+  personality: default
+  resume_display: full
+  busy_input_mode: interrupt
+  bell_on_complete: false
+  show_reasoning: true
+  streaming: true
+  final_response_markdown: strip
+  inline_diffs: true
+  show_cost: false
+  skin: default
+  user_message_preview:
+    first_lines: 2
+    last_lines: 2
+  interim_assistant_messages: true
+  tool_progress_command: false
+  tool_progress: all
+
+dashboard:
+  theme: default
+
+privacy:
+  redact_pii: true
+
+tts:
+  provider: edge
+  edge:
+    voice: en-US-AriaNeural
+
+stt:
+  enabled: true
+  provider: local
+  local:
+    model: base
+    language: ''
+
+voice:
+  record_key: ctrl+b
+  max_recording_seconds: 120
+  auto_tts: false
+  silence_threshold: 200
+  silence_duration: 3.0
+
+human_delay:
+  mode: 'off'
+  min_ms: 800
+  max_ms: 2500
+
+context:
+  engine: compressor
+
+memory:
+  memory_enabled: true
+  user_profile_enabled: true
+  memory_char_limit: 2200
+  user_char_limit: 1375
+  provider: obsidian
+  flush_min_turns: 3
+  nudge_interval: 10
+
+delegation:
+  model: ''
+  provider: ''
+  base_url: ''
+  api_key: ''
+  max_iterations: 50
+  reasoning_effort: ''
+  default_toolsets:
+    - terminal
+    - file
+    - web
+
+prefill_messages_file: ''
+
+skills:
+  external_dirs: []
+  creation_nudge_interval: 15
+
+honcho:
+  enabled: false
+  memory_mode: hybrid
+
+timezone: ''
+
+# ── Messaging Platforms ──────────────────────────────────────────────────────
+# Uncomment and configure the platforms you use:
+#
+# telegram:
+#   channel_prompts: {}
+#
+# discord:
+#   require_mention: true
+#   free_response_channels: ''
+#   allowed_channels: ''
+#   auto_thread: true
+#   reactions: true
+#   channel_prompts: {}
+
+approvals:
+  mode: manual
+  timeout: 60
+  cron_mode: deny
+
+command_allowlist:
+  - execute remote script via process substitution
+  - script execution via -e/-c flag
+  - hermes update (restarts gateway, kills running agents)
+  - shell command via -c/-lc flag
+
+quick_commands: {}
+personalities: {}
+
+security:
+  redact_secrets: true
+  tirith_enabled: false
+  website_blocklist:
+    enabled: false
+    domains: []
+    shared_files: []
+
+cron:
+  wrap_response: true
+
+code_execution:
+  mode: project
+
+logging:
+  level: INFO
+  max_size_mb: 5
+  backup_count: 3
+
+network:
+  force_ipv4: false
+
+smart_model_routing:
+  enabled: false
+  max_simple_chars: 160
+  max_simple_words: 28
+  cheap_model:
+    provider: ollama-cloud
+    model: nemotron-3-nano:30b
+
+# ── Vault / Obsidian ─────────────────────────────────────────────────────────
+# Path to your Obsidian vault — adjust for your OS
+# macOS/Linux: ~/vault
+# Windows (WSL): /mnt/c/Users/YourName/vault
+# Windows (native): C:\Users\YourName\vault
+obsidian:
+  vault_path: ~/vault
+
+# ── Web Search ──────────────────────────────────────────────────────────────
+# tavily (recommended, 1000/mo free), ddgs (DuckDuckGo, unlimited)
+web:
+  backend: tavily
+
+# ── Paperclip Integration ────────────────────────────────────────────────────
+# Paperclip adapter config is set in the adapter's own config, not here.
+# See: template/paperclip/adapter/
